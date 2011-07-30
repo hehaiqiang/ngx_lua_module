@@ -1,0 +1,34 @@
+
+# Copyright (C) Ngwsx
+
+
+ngx_addon_name=ngx_lua_module
+
+LUA="$ngx_addon_dir/../../../lib/lua"
+
+if [ "$NGX_PLATFORM" != win32 ]; then
+	CORE_LIBS="$CORE_LIBS -L$LUA/libs/unix -llua -lm"
+else
+	CORE_LIBS="$CORE_LIBS $LUA/libs/win32/liblua.lib"
+fi
+
+CORE_INCS="$CORE_INCS \
+	$LUA/incs \
+	$ngx_addon_dir/src"
+
+HTTP_MODULES="$HTTP_MODULES \
+	ngx_lua_module"
+
+NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
+	$ngx_addon_dir/src/ngx_lua_api.h \
+	$ngx_addon_dir/src/ngx_lua_module.h"
+
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
+	$ngx_addon_dir/src/ngx_lua.c \
+	$ngx_addon_dir/src/ngx_lua_api.c \
+	$ngx_addon_dir/src/ngx_lua_core_api.c \
+	$ngx_addon_dir/src/ngx_lua_dbd_api.c \
+	$ngx_addon_dir/src/ngx_lua_req_api.c \
+	$ngx_addon_dir/src/ngx_lua_resp_api.c \
+	$ngx_addon_dir/src/ngx_lua_module.c \
+	$ngx_addon_dir/src/ngx_lua_parse.c"
