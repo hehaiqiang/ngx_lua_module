@@ -20,9 +20,8 @@ typedef struct {
 
 
 void ngx_lua_api_init(lua_State *l);
-
-void ngx_lua_core_api_init(lua_State *l);
 void ngx_lua_dbd_api_init(lua_State *l);
+void ngx_lua_log_api_init(lua_State *l);
 void ngx_lua_req_api_init(lua_State *l);
 void ngx_lua_resp_api_init(lua_State *l);
 
