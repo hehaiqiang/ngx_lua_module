@@ -102,8 +102,57 @@ ngx_lua_req_api_init(lua_State *l)
 static int
 ngx_lua_req_headers_index(lua_State *l)
 {
-    /* TODO */
-    return 0;
+    u_char               ch;
+    ngx_str_t            key;
+    ngx_uint_t           i, n;
+    ngx_list_part_t     *part;
+    ngx_table_elt_t     *header;
+    ngx_http_request_t  *r;
+
+    r = ngx_lua_request(l);
+
+    key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
+
+    part = &r->headers_in.headers.part;
+    header = part->elts;
+
+    for (i = 0; /* void */ ; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+
+        for (n = 0; n < key.len && n < header[i].key.len; n++) {
+            ch = header[i].key.data[n];
+
+            if (ch >= 'A' && ch <= 'Z') {
+                ch |= 0x20;
+
+            } else if (ch == '-') {
+                ch = '_';
+            }
+
+            if (key.data[n] != ch) {
+                break;
+            }
+        }
+
+        if (n == key.len && n == header[i].key.len) {
+            lua_pushlstring(l, (char *) header[i].value.data,
+                            header[i].value.len);
+            return 1;
+        }
+    }
+
+    lua_pushnil(l);
+
+    return 1;
 }
 
 
