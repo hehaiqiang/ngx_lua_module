@@ -99,8 +99,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     dquoted = 0;
     squoted = 0;
 
-    out = ngx_cpymem(ctx->buf->last, "return function()\n",
-                     sizeof("return function()\n") - 1);
+    out = ngx_cpymem(ctx->buf->last, "return function() ",
+                     sizeof("return function() ") - 1);
 
     /* TODO */
 
@@ -345,7 +345,7 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
                          sizeof(NGX_LUA_OUTPUT_END) - 1);
     }
 
-    out = ngx_cpymem(out, "\nend", sizeof("\nend") - 1);
+    out = ngx_cpymem(out, " end", sizeof(" end") - 1);
 
     ctx->buf->last = out;
 
