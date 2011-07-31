@@ -9,12 +9,11 @@
 #include <ngx_lua_api.h>
 
 
-static luaL_Reg  ngx_lua_resp[] = {
-    { NULL, NULL }
-};
+static int ngx_lua_resp_write(lua_State *l);
+static int ngx_lua_resp_newindex(lua_State *l);
 
 
-static ngx_lua_const_t  ngx_lua_resp_const[] = {
+static ngx_lua_const_t  ngx_lua_resp_consts[] = {
     { "OK", NGX_HTTP_OK },
     { "CREATED", NGX_HTTP_CREATED },
     { "ACCEPTED", NGX_HTTP_ACCEPTED },
@@ -58,44 +57,94 @@ static ngx_lua_const_t  ngx_lua_resp_const[] = {
 };
 
 
+static luaL_Reg  ngx_lua_resp_methods[] = {
+    { "write", ngx_lua_resp_write },
+    { NULL, NULL }
+};
+
+
 void
 ngx_lua_resp_api_init(lua_State *l)
 {
     int  i, n;
 
-    n = sizeof(ngx_lua_resp) / sizeof(luaL_Reg) - 1;
-    n += sizeof(ngx_lua_resp_const) / sizeof(ngx_lua_const_t) - 1;
+    n = sizeof(ngx_lua_resp_consts) / sizeof(ngx_lua_const_t) - 1;
+    n += sizeof(ngx_lua_resp_methods) / sizeof(luaL_Reg) - 1;
 
-    lua_createtable(l, 0, n);
+    lua_createtable(l, 2, n);
 
-    for (i = 0; ngx_lua_resp[i].name != NULL; i++) {
-        lua_pushcfunction(l, ngx_lua_resp[i].func);
-        lua_setfield(l, -2, ngx_lua_resp[i].name);
+    for (i = 0; ngx_lua_resp_consts[i].name != NULL; i++) {
+        lua_pushinteger(l, ngx_lua_resp_consts[i].value);
+        lua_setfield(l, -2, ngx_lua_resp_consts[i].name);
     }
 
-    for (i = 0; ngx_lua_resp_const[i].name != NULL; i++) {
-        lua_pushinteger(l, ngx_lua_resp_const[i].value);
-        lua_setfield(l, -2, ngx_lua_resp_const[i].name);
+    for (i = 0; ngx_lua_resp_methods[i].name != NULL; i++) {
+        lua_pushcfunction(l, ngx_lua_resp_methods[i].func);
+        lua_setfield(l, -2, ngx_lua_resp_methods[i].name);
     }
+
+    /* TODO: the metatable of the table "headers" */
+    lua_newtable(l);
+    lua_setfield(l, -2, "headers");
+
+    /* TODO: the metatable of the table "cookies" */
+    lua_newtable(l);
+    lua_setfield(l, -2, "cookies");
+
+    lua_createtable(l, 0, 1);
+    lua_pushcfunction(l, ngx_lua_resp_newindex);
+    lua_setfield(l, -2, "__newindex");
+    lua_setmetatable(l, -2);
 
     lua_setfield(l, -2, "resp");
 }
 
 
-#if 0
 static int
-ngx_http_lua_response_set_content_type(lua_State *lua)
+ngx_lua_resp_write(lua_State *l)
 {
     ngx_str_t            str;
     ngx_http_request_t  *r;
 
-    lua_getallocf(lua, (void **) &r);
+    r = ngx_lua_request(l);
 
-    str.data = (u_char *) lua_tolstring(lua, 1, &str.len);
-
-    r->headers_out.content_type.len = str.len;
-    r->headers_out.content_type.data = ngx_pstrdup(r->pool, &str);
+    str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
+    ngx_lua_output(r, str.data, str.len);
 
     return 0;
 }
-#endif
+
+
+static int
+ngx_lua_resp_newindex(lua_State *l)
+{
+    ngx_str_t            key, value, str;
+    ngx_http_request_t  *r;
+
+    r = ngx_lua_request(l);
+
+    key.data = (u_char *) luaL_checklstring(l, 2, &key.len);
+    value.data = (u_char *) luaL_checklstring(l, 3, &value.len);
+
+    str.len = value.len;
+    str.data = ngx_pstrdup(r->pool, &value);
+
+    /* TODO: r->headers_out.status */
+
+    switch (key.len) {
+
+    case 12:
+
+        if (ngx_strncmp(key.data, "content_type", 12) == 0) {
+            r->headers_out.content_type.len = str.len;
+            r->headers_out.content_type.data = str.data;
+        }
+
+        break;
+
+    default:
+        break;
+    }
+
+    return 0;
+}
