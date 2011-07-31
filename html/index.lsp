@@ -8,6 +8,7 @@ local dbd = nginx.dbd
 local log = nginx.log
 local req = nginx.req
 local resp = nginx.resp
+local var = nginx.var
 
 local url = "http://www.126.com/"
 local title = "126.com"
@@ -52,12 +53,14 @@ end
 <hr>
 <%
 -- test the table "log"
+print("<hr>")
 --log.error(log.ALERT, "test alert" .. 1 .. 10)
 --log.debug(log.DEBUG_HTTP, "test debug http")
 --log.error(log.ERR, "test error")
 --log.error(log.EMERG, 1000)
 
 -- test the table "req"
+print("<hr>")
 print("uri: " .. req.uri .. "<br/>")
 print("args: " .. req.args .. "<br/>")
 print("host: " .. req.host .. "<br/>")
@@ -70,15 +73,64 @@ print("request_time: " .. req.request_time .. "ms" .. "<br/>")
 print("request_line: " .. req.request_line .. "<br/>")
 print("unparsed_uri: " .. req.unparsed_uri .. "<br/>")
 print("http_protocol: " .. req.http_protocol .. "<br/>")
+
+-- test the table "req.headers"
+print("<hr>")
+print("Host: " .. req.headers.host .. "<br/>")
+print("User-Agent: " .. req.headers.user_agent .. "<br/>")
+
+-- test the table "req.cookies"
+print("<hr>")
+
+-- test the table "req.get"
+print("<hr>")
 local id = req.get["id"] if id then print("id: " .. id .. "<br/>") end
 local id = req.get.id if id then print("id: " .. id .. "<br/>") end
 local start = req.get["start"] if start then print("start: " .. start .. "<br/>") end
 local start = req.get.start if start then print("start: " .. start .. "<br/>") end
 
+-- test the table "req.post"
+print("<hr>")
+
 -- test the table "resp"
+print("<hr>")
 --resp.content_type = "text/html"
 --resp.content_type = "text/plain"
-resp.write("<hr><hr><hr><hr><hr>")
+resp.write("xxxxxxxxxx")
+
+-- test the table "var"
+print("<hr>")
+--print(var.arg_PARAMETER .. "<br/>")
+local args = var.args if args then print("args: " .. args .. "<br/>") end
+--print(var.binary_remote_addr .. "<br/>")
+print("body_bytes_sent: " .. var.body_bytes_sent .. "<br/>")
+local content_length = var.content_length if content_length then print("content_length: " .. content_length .. "<br/>") end
+local content_type = var.content_type if content_type then print("content_type: " .. content_type .. "<br/>") end
+--print(var.cookie_COOKIE .. "<br/>")
+print("document_root: " .. var.document_root .. "<br/>")
+print("document_uri: " .. var.document_uri .. "<br/>")
+print("host: " .. var.host .. "<br/>")
+print("hostname: " .. var.hostname .. "<br/>")
+--print(var.http_HEADER .. "<br/>")
+print("is_args: " .. var.is_args .. "<br/>")
+print("limit_rate: " .. var.limit_rate .. "<br/>")
+print("nginx_version: " .. var.nginx_version .. "<br/>")
+local query_string = var.query_string if query_string then print("query_string: " .. query_string .. "<br/>") end
+print("remote_addr: " .. var.remote_addr .. "<br/>")
+print("remote_port: " .. var.remote_port .. "<br/>")
+--print("remote_user: " .. var.remote_user .. "<br/>")
+print("request_filename: " .. var.request_filename .. "<br/>")
+--print("request_body: " .. var.request_body .. "<br/>")
+--print("request_body_file: " .. var.request_body_file .. "<br/>")
+print("request_completion: " .. var.request_completion .. "<br/>")
+print("request_method: " .. var.request_method .. "<br/>")
+print("request_uri: " .. var.request_uri .. "<br/>")
+print("scheme: " .. var.scheme .. "<br/>")
+print("server_addr: " .. var.server_addr .. "<br/>")
+print("server_name: " .. var.server_name .. "<br/>")
+print("server_port: " .. var.server_port .. "<br/>")
+print("server_protocol: " .. var.server_protocol .. "<br/>")
+print("uri: " .. var.uri .. "<br/>")
 %>
 </body>
 </html>
