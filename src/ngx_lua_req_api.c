@@ -110,8 +110,23 @@ ngx_lua_req_headers_index(lua_State *l)
 static int
 ngx_lua_req_cookies_index(lua_State *l)
 {
-    /* TODO */
-    return 0;
+    ngx_str_t            key, value;
+    ngx_http_request_t  *r;
+
+    r = ngx_lua_request(l);
+
+    key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
+
+    if (ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &key, &value)
+        == NGX_DECLINED)
+    {
+        lua_pushnil(l);
+        return 1;
+    }
+
+    lua_pushlstring(l, (char *) value.data, value.len);
+
+    return 1;
 }
 
 
@@ -322,8 +337,6 @@ ngx_lua_req_index(lua_State *l)
 
     ngx_str_t                         user;
     ngx_str_t                         passwd;
-
-    ngx_array_t                       cookies;
 
     ngx_str_t                         server;
     off_t                             content_length_n;
