@@ -115,7 +115,10 @@ ngx_lua_handler(ngx_http_request_t *r)
         return NGX_HTTP_NOT_FOUND;
     }
 
+    /* TODO: lua code caching */
+
     if (ngx_lua_parse(r, ctx) == NGX_ERROR) {
+        /* TODO: parsing error */
         ngx_lua_finalize(r, NGX_ERROR);
         return NGX_OK;
     }
@@ -125,9 +128,11 @@ ngx_lua_handler(ngx_http_request_t *r)
     rc = lua_load(lmcf->l, ngx_lua_reader, r, (char *) ctx->path.data);
     if (rc != 0) {
         if (lua_isstring(lmcf->l, -1)) {
+            str.data = (u_char *) lua_tolstring(lmcf->l, -1, &str.len);
+            ngx_lua_output(r, str.data, str.len);
+
             ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
-                          "lua_load() \"%s\" failed (rc:%d)",
-                          lua_tostring(lmcf->l, -1), rc);
+                          "lua_load() \"%V\" failed (rc:%d)", &str, rc);
         }
 
         ngx_lua_finalize(r, NGX_ERROR);
@@ -137,16 +142,12 @@ ngx_lua_handler(ngx_http_request_t *r)
 
     rc = lua_pcall(lmcf->l, 0, 1, 0);
     if (rc != 0) {
-
-        /* TODO */
-
-        if (lua_isnil(lmcf->l, -1)) {
-            ngx_lua_finalize(r, NGX_ERROR);
-            return NGX_OK;
-        }
-
         if (lua_isstring(lmcf->l, -1)) {
             str.data = (u_char *) lua_tolstring(lmcf->l, -1, &str.len);
+            ngx_lua_output(r, str.data, str.len);
+
+            ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                          "lua_pcall() \"%V\" failed (rc:%d)", &str, rc);
         }
 
         lua_pop(lmcf->l, 1);
@@ -162,9 +163,6 @@ ngx_lua_handler(ngx_http_request_t *r)
     }
 
     rc = ngx_lua_thread_run(r, ctx, 0);
-
-    /* TODO: rc */
-
     if (rc != NGX_AGAIN) {
         ngx_lua_thread_close(r, ctx);
         ngx_lua_finalize(r, rc);
@@ -194,6 +192,8 @@ ngx_lua_reader(lua_State *s, void *data, size_t *size)
     ngx_buf_t      *b;
     ngx_lua_ctx_t  *ctx;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua reader");
+
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
     b = ctx->buf;
@@ -218,6 +218,8 @@ ngx_lua_cleanup(void *data)
 
     ngx_lua_ctx_t  *ctx;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua cleanup");
+
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
     ngx_lua_thread_close(r, ctx);
@@ -227,7 +229,7 @@ ngx_lua_cleanup(void *data)
 static ngx_int_t
 ngx_lua_init(ngx_conf_t *cf)
 {
-    /* TODO */
+    /* TODO: setting header and body fileter */
 
     return NGX_OK;
 }

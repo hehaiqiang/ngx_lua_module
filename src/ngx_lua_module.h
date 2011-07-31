@@ -41,6 +41,7 @@ typedef struct {
 
 ngx_int_t ngx_lua_state_new(ngx_conf_t *cf, ngx_lua_main_conf_t *lmcf);
 void ngx_lua_state_close(void *data);
+
 ngx_int_t ngx_lua_thread_new(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 void ngx_lua_thread_close(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 ngx_int_t ngx_lua_thread_run(ngx_http_request_t *r, ngx_lua_ctx_t *ctx, int n);
