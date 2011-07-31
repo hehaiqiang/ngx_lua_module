@@ -24,6 +24,7 @@ void ngx_lua_dbd_api_init(lua_State *l);
 void ngx_lua_log_api_init(lua_State *l);
 void ngx_lua_req_api_init(lua_State *l);
 void ngx_lua_resp_api_init(lua_State *l);
+void ngx_lua_var_api_init(lua_State *l);
 
 
 #endif /* _NGX_LUA_API_H_INCLUDED_ */

@@ -36,7 +36,7 @@ ngx_lua_api_init(lua_State *l)
 
     n = sizeof(ngx_lua_consts) / sizeof(ngx_lua_const_t) - 1;
 
-    lua_createtable(l, 4, n);
+    lua_createtable(l, 5, n);
 
     for (n = 0; ngx_lua_consts[n].name != NULL; n++) {
         lua_pushinteger(l, ngx_lua_consts[n].value);
@@ -47,6 +47,7 @@ ngx_lua_api_init(lua_State *l)
     ngx_lua_log_api_init(l);
     ngx_lua_req_api_init(l);
     ngx_lua_resp_api_init(l);
+    ngx_lua_var_api_init(l);
 
     lua_setglobal(l, "nginx");
 }

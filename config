@@ -30,5 +30,6 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/ngx_lua_log_api.c \
 	$ngx_addon_dir/src/ngx_lua_req_api.c \
 	$ngx_addon_dir/src/ngx_lua_resp_api.c \
+	$ngx_addon_dir/src/ngx_lua_var_api.c \
 	$ngx_addon_dir/src/ngx_lua_module.c \
 	$ngx_addon_dir/src/ngx_lua_parse.c"
