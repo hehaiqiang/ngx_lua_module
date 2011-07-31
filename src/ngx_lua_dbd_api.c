@@ -59,7 +59,7 @@ static int ngx_lua_dbd_field_read(lua_State *l);
 static int ngx_lua_dbd_gc(lua_State *l);
 static int ngx_lua_dbd_tostring(lua_State *l);
 
-static ngx_dbd_t *ngx_lua_dbd(lua_State *l);
+static ngx_inline ngx_dbd_t *ngx_lua_dbd(lua_State *l);
 static int ngx_lua_dbd_handle_command(lua_State *l, ngx_dbd_t *dbd, int cmd);
 static void ngx_lua_dbd_handler(void *data);
 
@@ -112,7 +112,6 @@ ngx_lua_dbd_api_init(lua_State *l)
     int  i;
 
     luaL_newmetatable(l, NGX_LUA_DBD);
-
     lua_pushvalue(l, -1);
     lua_setfield(l, -2, "__index");
 
@@ -123,7 +122,7 @@ ngx_lua_dbd_api_init(lua_State *l)
 
     lua_pop(l, 1);
 
-    lua_createtable(l, 0, 2);
+    lua_createtable(l, 0, 1);
     lua_pushcfunction(l, ngx_lua_dbd_create);
     lua_setfield(l, -2, "create");
     lua_setfield(l, -2, "dbd");
@@ -584,7 +583,7 @@ ngx_lua_dbd_tostring(lua_State *l)
 }
 
 
-static ngx_dbd_t *
+static ngx_inline ngx_dbd_t *
 ngx_lua_dbd(lua_State *l)
 {
     ngx_dbd_t  **dbd;
@@ -609,6 +608,9 @@ ngx_lua_dbd_handle_command(lua_State *l, ngx_dbd_t *dbd, int cmd)
     ngx_http_request_t  *r;
 
     r = ngx_lua_request(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua dbd handle command");
 
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
@@ -656,7 +658,11 @@ ngx_lua_dbd_handler(void *data)
     ngx_http_request_t *r = data;
 
     int             n;
+    ngx_int_t       rc;
     ngx_lua_ctx_t  *ctx;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua dbd handler");
 
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
@@ -665,9 +671,10 @@ ngx_lua_dbd_handler(void *data)
         return;
     }
 
-    if (ngx_lua_thread_run(r, ctx, n) == NGX_AGAIN) {
+    rc = ngx_lua_thread_run(r, ctx, n);
+    if (rc == NGX_AGAIN) {
         return;
     }
 
-    ngx_lua_finalize(r, NGX_OK);
+    ngx_lua_finalize(r, rc);
 }
