@@ -25,6 +25,7 @@ ngx_lua_state_new(ngx_conf_t *cf, ngx_lua_main_conf_t *lmcf)
 
     l = luaL_newstate();
     if (l == NULL) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "luaL_newstate() failed");
         return NGX_ERROR;
     }
 
@@ -78,6 +79,8 @@ ngx_lua_thread_new(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     lua_State            *l;
     ngx_lua_main_conf_t  *lmcf;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua thread new");
+
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
 
     top = lua_gettop(lmcf->l);
@@ -85,6 +88,8 @@ ngx_lua_thread_new(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
     l = lua_newthread(lmcf->l);
     if (l == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                      "lua_newthread() failed");
         lua_pop(lmcf->l, 1);
         return NGX_ERROR;
     }
@@ -98,6 +103,8 @@ ngx_lua_thread_new(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
     ctx->ref = luaL_ref(lmcf->l, -2);
     if (ctx->ref == LUA_NOREF) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                      "luaL_ref() return LUA_NOREF");
         lua_settop(lmcf->l, top);
         return NGX_ERROR;
     }
@@ -127,6 +134,9 @@ ngx_lua_thread_close(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     lua_State            *l;
     ngx_lua_main_conf_t  *lmcf;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua thread close");
+
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
 
     lua_getfield(lmcf->l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
@@ -134,8 +144,6 @@ ngx_lua_thread_close(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     lua_rawgeti(lmcf->l, -1, ctx->ref);
     l = lua_tothread(lmcf->l, -1);
     lua_pop(lmcf->l, 1);
-
-    /* TODO */
 
     lua_getglobal(l, NGX_LUA_KEY_CODE);
     lua_getfenv(l, -1);
@@ -162,13 +170,19 @@ ngx_int_t
 ngx_lua_thread_run(ngx_http_request_t *r, ngx_lua_ctx_t *ctx, int n)
 {
     int                   rc;
+    ngx_str_t             str;
     ngx_lua_main_conf_t  *lmcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua thread run");
 
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
 
     lua_atpanic(lmcf->l, ngx_lua_panic);
 
     rc = lua_resume(ctx->l, n);
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua_resume() rc:%d", rc);
 
     switch (rc) {
     case 0:
@@ -185,9 +199,11 @@ ngx_lua_thread_run(ngx_http_request_t *r, ngx_lua_ctx_t *ctx, int n)
     }
 
     if (lua_isstring(ctx->l, -1)) {
+        str.data = (u_char *) lua_tolstring(ctx->l, -1, &str.len);
+        ngx_lua_output(r, str.data, str.len);
+
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
-                      "lua_resume() \"%s\" (rc:%d)",
-                      lua_tostring(ctx->l, -1), rc);
+                      "lua_resume() \"%V\" (rc:%d)", &str, rc);
     }
 
     return NGX_ERROR;
@@ -263,11 +279,13 @@ ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc)
     ngx_chain_t    *cl;
     ngx_lua_ctx_t  *ctx;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua finalize");
+
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
-    /* TODO: content_type */
-
-    ngx_str_set(&r->headers_out.content_type, "text/html");
+    if (r->headers_out.content_type.len == 0) {
+        ngx_str_set(&r->headers_out.content_type, "text/html");
+    }
 
     if (r->method == NGX_HTTP_HEAD) {
         r->headers_out.status = NGX_HTTP_OK;
@@ -333,13 +351,26 @@ ngx_lua_set_path(lua_State *l, char *key, ngx_str_t *value)
 static int
 ngx_lua_panic(lua_State *l)
 {
-    ngx_str_t  str;
+    ngx_str_t            str;
+    ngx_log_t           *log;
+    ngx_http_request_t  *r;
+
+    lua_getglobal(l, NGX_LUA_KEY_REQ);
+    r = lua_touserdata(l, -1);
+    lua_pop(l, 1);
 
     str.data = (u_char *) lua_tolstring(l, -1, &str.len);
 
-    /* TODO */
+    if (r != NULL) {
+        ngx_lua_output(r, str.data, str.len);
 
-    ngx_log_error(NGX_LOG_ALERT, ngx_cycle->log, 0, "%V", &str);
+        log = r->connection->log;
+
+    } else {
+        log = ngx_cycle->log;
+    }
+
+    ngx_log_error(NGX_LOG_ALERT, log, 0, "%V", &str);
 
     return 0;
 }
