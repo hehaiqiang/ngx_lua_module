@@ -90,6 +90,7 @@ local start = req.get["start"] if start then print("start: " .. start .. "<br/>"
 local start = req.get.start if start then print("start: " .. start .. "<br/>") end
 
 -- test the table "req.post"
+local message = req.post.message if message then print("message: " .. message .. "<br/>") end
 print("<hr>")
 
 -- test the table "resp"
@@ -132,5 +133,10 @@ print("server_port: " .. var.server_port .. "<br/>")
 print("server_protocol: " .. var.server_protocol .. "<br/>")
 print("uri: " .. var.uri .. "<br/>")
 %>
+<form action="index.lsp" method="post">
+<input type="text" name="title"/>
+<input type="text" name="message"/>
+<input type="submit" value="submit"/>
+</form>
 </body>
 </html>

@@ -36,6 +36,8 @@ typedef struct {
     int             ref;
     ngx_dbd_t      *dbd;
     int             cmd;
+
+    ngx_str_t       request_body;
 } ngx_lua_ctx_t;
 
 

@@ -15,6 +15,11 @@ static int ngx_lua_req_get_index(lua_State *l);
 static int ngx_lua_req_post_index(lua_State *l);
 static int ngx_lua_req_index(lua_State *l);
 
+static ngx_int_t ngx_lua_req_copy_request_body(ngx_http_request_t *r,
+    ngx_lua_ctx_t *ctx);
+static ngx_int_t ngx_lua_req_parse_post_arg(ngx_str_t *post, ngx_str_t *key,
+    ngx_str_t *value);
+
 
 static ngx_lua_const_t  ngx_lua_req_consts[] = {
     { "UNKNOWN", NGX_HTTP_UNKNOWN },
@@ -203,8 +208,72 @@ ngx_lua_req_get_index(lua_State *l)
 static int
 ngx_lua_req_post_index(lua_State *l)
 {
-    /* TODO */
-    return 0;
+    ngx_str_t            key, value;
+    ngx_lua_ctx_t       *ctx;
+    ngx_http_request_t  *r;
+
+    r = ngx_lua_request(l);
+
+    if (r->request_body == NULL) {
+        lua_pushnil(l);
+        return 1;
+    }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
+
+    key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
+
+    switch (key.len) {
+
+    case 12:
+
+        if (ngx_strncmp(key.data, "request_body", 12) == 0) {
+            if (ngx_lua_req_copy_request_body(r, ctx) != NGX_OK) {
+                lua_pushnil(l);
+                return 1;
+            }
+
+            lua_pushlstring(l, (char *) ctx->request_body.data,
+                            ctx->request_body.len);
+            return 1;
+        }
+
+        break;
+
+    case 17:
+
+        if (ngx_strncmp(key.data, "request_body_file", 17) == 0) {
+            if (r->request_body->temp_file == NULL) {
+                lua_pushnil(l);
+                return 1;
+            }
+
+            lua_pushlstring(l,
+                            (char *) r->request_body->temp_file->file.name.data,
+                            r->request_body->temp_file->file.name.len);
+            return 1;
+        }
+
+        break;
+
+    default:
+        break;
+    }
+
+    if (ngx_lua_req_copy_request_body(r, ctx) != NGX_OK) {
+        lua_pushnil(l);
+        return 1;
+    }
+
+    if (ngx_lua_req_parse_post_arg(&ctx->request_body, &key, &value) != NGX_OK)
+    {
+        lua_pushnil(l);
+        return 1;
+    }
+
+    lua_pushlstring(l, (char *) value.data, value.len);
+
+    return 1;
 }
 
 
@@ -344,53 +413,39 @@ ngx_lua_req_index(lua_State *l)
     return 1;
 }
 #if 0
-    ngx_list_t                        headers;
-
     ngx_table_elt_t                  *connection;
     ngx_table_elt_t                  *if_modified_since;
     ngx_table_elt_t                  *if_unmodified_since;
     ngx_table_elt_t                  *content_length;
     ngx_table_elt_t                  *content_type;
-
     ngx_table_elt_t                  *range;
     ngx_table_elt_t                  *if_range;
-
     ngx_table_elt_t                  *transfer_encoding;
     ngx_table_elt_t                  *expect;
-
 #if (NGX_HTTP_GZIP)
     ngx_table_elt_t                  *accept_encoding;
     ngx_table_elt_t                  *via;
 #endif
-
     ngx_table_elt_t                  *authorization;
-
     ngx_table_elt_t                  *keep_alive;
-
 #if (NGX_HTTP_PROXY || NGX_HTTP_REALIP || NGX_HTTP_GEO)
     ngx_table_elt_t                  *x_forwarded_for;
 #endif
-
 #if (NGX_HTTP_REALIP)
     ngx_table_elt_t                  *x_real_ip;
 #endif
-
 #if (NGX_HTTP_HEADERS)
     ngx_table_elt_t                  *accept;
     ngx_table_elt_t                  *accept_language;
 #endif
-
 #if (NGX_HTTP_DAV)
     ngx_table_elt_t                  *date;
 #endif
-
     ngx_str_t                         user;
     ngx_str_t                         passwd;
-
     ngx_str_t                         server;
     off_t                             content_length_n;
     time_t                            keep_alive_n;
-
     unsigned                          msie:1;
     unsigned                          msie4:1;
     unsigned                          msie6:1;
@@ -402,80 +457,85 @@ ngx_lua_req_index(lua_State *l)
 #endif
 
 
-#if 0
-static int
-ngx_http_lua_request_get_body(lua_State *lua)
+static ngx_int_t
+ngx_lua_req_copy_request_body(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 {
-    ngx_buf_t           *buf;
-    ngx_http_request_t  *r;
+    u_char       *p;
+    size_t        len;
+    ngx_buf_t    *buf, *next;
+    ngx_chain_t  *cl;
 
-    lua_getallocf(lua, (void **) &r);
-
-    if (r->request_body == NULL
-        || r->request_body->temp_file != NULL
-        || r->request_body->bufs == NULL)
-    {
-        lua_pushnil(lua);
-        return 1;
+    if (r->request_body->bufs == NULL && r->request_body->temp_file == NULL) {
+        return NGX_DECLINED;
     }
 
-    buf = r->request_body->bufs->buf;
-    lua_pushlstring(lua, (const char *) buf->pos, buf->last - buf->pos);
+    if (ctx->request_body.len) {
+        return NGX_OK;
+    }
 
-    return 1;
+    /* TODO: r->request_body->bufs == NULL */
+
+    cl = r->request_body->bufs;
+    buf = cl->buf;
+
+    if (cl->next == NULL) {
+        ctx->request_body.len = buf->last - buf->pos;
+        ctx->request_body.data = buf->pos;
+
+        return NGX_OK;
+    }
+
+    next = cl->next->buf;
+    len = (buf->last - buf->pos) + (next->last - next->pos);
+
+    p = ngx_pnalloc(r->pool, len);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    p = ngx_cpymem(p, buf->pos, buf->last - buf->pos);
+    ngx_memcpy(p, next->pos, next->last - next->pos);
+
+    ctx->request_body.len = len;
+    ctx->request_body.data = p;
+
+    return NGX_OK;
 }
 
 
-static int
-ngx_http_lua_request_get_body_file(lua_State *lua)
+static ngx_int_t
+ngx_lua_req_parse_post_arg(ngx_str_t *post, ngx_str_t *key, ngx_str_t *value)
 {
-    ngx_str_t           *str;
-    ngx_http_request_t  *r;
+    u_char  *p, *last;
 
-    lua_getallocf(lua, (void **) &r);
+    p = post->data;
+    last = p + post->len;
 
-    if (r->request_body == NULL || r->request_body->temp_file == NULL) {
-        lua_pushnil(lua);
-        return 1;
+    for ( /* void */ ; p < last; p++) {
+
+        /* we need '=' after name, so drop one char from last */
+
+        p = ngx_strlcasestrn(p, last - 1, key->data, key->len - 1);
+
+        if (p == NULL) {
+            return NGX_DECLINED;
+        }
+
+        if ((p == post->data || *(p - 1) == '&') && *(p + key->len) == '=') {
+
+            value->data = p + key->len + 1;
+
+            p = ngx_strlchr(p, last, '&');
+
+            if (p == NULL) {
+                p = post->data + post->len;
+            }
+
+            value->len = p - value->data;
+
+            return NGX_OK;
+        }
     }
 
-    str = &r->request_body->temp_file->file.name;
-    lua_pushlstring(lua, (const char *) str->data, str->len);
-
-    return 1;
+    return NGX_DECLINED;
 }
-
-
-static int
-ngx_http_lua_request_read_body(lua_State *lua)
-{
-    ngx_str_t            str;
-    ngx_lua_ctx_t       *ctx;
-    ngx_http_request_t  *r;
-
-    str.data = (u_char *) lua_tolstring(lua, 1, &str.len);
-
-    lua_getallocf(lua, (void **) &r);
-    ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
-
-    ctx->next = ngx_palloc(r->pool, sizeof(ngx_str_t));
-    if (ctx->next == NULL) {
-        return 0;
-    }
-
-    ctx->next->len = str.len;
-    ctx->next->data = ngx_pstrdup(r->pool, &str);
-
-    r->request_body_in_single_buf = 1;
-    r->request_body_in_persistent_file = 1;
-    r->request_body_in_clean_file = 1;
-
-    if (r->request_body_in_file_only > 0) {
-        r->request_body_file_log_level = 0;
-    }
-
-    ngx_http_read_client_request_body(r, ngx_http_lua_handle_request);
-
-    return 0;
-}
-#endif

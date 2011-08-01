@@ -9,6 +9,7 @@
 #include <ngx_lua_module.h>
 
 
+static void ngx_lua_handle_request(ngx_http_request_t *r);
 static const char *ngx_lua_reader(lua_State *lua, void *data, size_t *size);
 static void ngx_lua_cleanup(void *data);
 
@@ -79,15 +80,12 @@ ngx_module_t  ngx_lua_module = {
 static ngx_int_t
 ngx_lua_handler(ngx_http_request_t *r)
 {
-    size_t                root;
-    u_char               *last;
-    ngx_err_t             err;
-    ngx_int_t             rc;
-    ngx_str_t             str;
-    ngx_lua_ctx_t        *ctx;
-    ngx_file_info_t       fi;
-    ngx_http_cleanup_t   *cln;
-    ngx_lua_main_conf_t  *lmcf;
+    size_t            root;
+    u_char           *last;
+    ngx_err_t         err;
+    ngx_int_t         rc;
+    ngx_lua_ctx_t    *ctx;
+    ngx_file_info_t   fi;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua handler");
 
@@ -97,8 +95,6 @@ ngx_lua_handler(ngx_http_request_t *r)
     }
 
     ngx_http_set_ctx(r, ctx, ngx_lua_module);
-
-    ctx->ref = LUA_NOREF;
 
     last = ngx_http_map_uri_to_path(r, &ctx->path, &root, 0);
     if (last == NULL) {
@@ -115,12 +111,43 @@ ngx_lua_handler(ngx_http_request_t *r)
         return NGX_HTTP_NOT_FOUND;
     }
 
+    r->request_body_in_single_buf = 1;
+    r->request_body_in_persistent_file = 1;
+    r->request_body_in_clean_file = 1;
+
+    if (r->request_body_in_file_only > 0) {
+        r->request_body_file_log_level = 0;
+    }
+
+    rc = ngx_http_read_client_request_body(r, ngx_lua_handle_request);
+
+    if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+        return rc;
+    }
+
+    return NGX_DONE;
+}
+
+
+static void
+ngx_lua_handle_request(ngx_http_request_t *r)
+{
+    ngx_int_t             rc;
+    ngx_str_t             str;
+    ngx_lua_ctx_t        *ctx;
+    ngx_http_cleanup_t   *cln;
+    ngx_lua_main_conf_t  *lmcf;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
+
+    ctx->ref = LUA_NOREF;
+
     /* TODO: lua code caching */
 
     if (ngx_lua_parse(r, ctx) == NGX_ERROR) {
         /* TODO: parsing error */
         ngx_lua_finalize(r, NGX_ERROR);
-        return NGX_OK;
+        return;
     }
 
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
@@ -136,8 +163,7 @@ ngx_lua_handler(ngx_http_request_t *r)
         }
 
         ngx_lua_finalize(r, NGX_ERROR);
-
-        return NGX_OK;
+        return;
     }
 
     rc = lua_pcall(lmcf->l, 0, 1, 0);
@@ -153,33 +179,30 @@ ngx_lua_handler(ngx_http_request_t *r)
         lua_pop(lmcf->l, 1);
 
         ngx_lua_finalize(r, NGX_ERROR);
-
-        return NGX_OK;
+        return;
     }
 
     if (ngx_lua_thread_new(r, ctx) == NGX_ERROR) {
         ngx_lua_finalize(r, NGX_ERROR);
-        return NGX_OK;
+        return;
     }
 
     rc = ngx_lua_thread_run(r, ctx, 0);
     if (rc != NGX_AGAIN) {
         ngx_lua_thread_close(r, ctx);
         ngx_lua_finalize(r, rc);
-        return NGX_OK;
+        return;
     }
 
     cln = ngx_http_cleanup_add(r, 0);
     if (cln == NULL) {
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        ngx_lua_thread_close(r, ctx);
+        ngx_lua_finalize(r, rc);
+        return;
     }
 
     cln->handler = ngx_lua_cleanup;
     cln->data = r;
-
-    r->main->count++;
-
-    return NGX_DONE;
 }
 
 
@@ -229,7 +252,7 @@ ngx_lua_cleanup(void *data)
 static ngx_int_t
 ngx_lua_init(ngx_conf_t *cf)
 {
-    /* TODO: setting header and body fileter */
+    /* TODO: set header and body filter */
 
     return NGX_OK;
 }
