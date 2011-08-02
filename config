@@ -26,10 +26,10 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/ngx_lua.c \
 	$ngx_addon_dir/src/ngx_lua_api.c \
-	$ngx_addon_dir/src/ngx_lua_dbd_api.c \
-	$ngx_addon_dir/src/ngx_lua_log_api.c \
-	$ngx_addon_dir/src/ngx_lua_req_api.c \
-	$ngx_addon_dir/src/ngx_lua_resp_api.c \
-	$ngx_addon_dir/src/ngx_lua_var_api.c \
+	$ngx_addon_dir/src/ngx_lua_database_api.c \
+	$ngx_addon_dir/src/ngx_lua_logger_api.c \
+	$ngx_addon_dir/src/ngx_lua_request_api.c \
+	$ngx_addon_dir/src/ngx_lua_response_api.c \
+	$ngx_addon_dir/src/ngx_lua_variable_api.c \
 	$ngx_addon_dir/src/ngx_lua_module.c \
 	$ngx_addon_dir/src/ngx_lua_parse.c"
