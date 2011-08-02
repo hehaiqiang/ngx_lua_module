@@ -17,7 +17,7 @@ static int ngx_lua_req_index(lua_State *l);
 
 static ngx_int_t ngx_lua_req_copy_request_body(ngx_http_request_t *r,
     ngx_lua_ctx_t *ctx);
-static ngx_int_t ngx_lua_req_parse_post_arg(ngx_str_t *post, ngx_str_t *key,
+static ngx_int_t ngx_lua_req_get_posted_arg(ngx_str_t *posted, ngx_str_t *key,
     ngx_str_t *value);
 
 
@@ -265,11 +265,13 @@ ngx_lua_req_post_index(lua_State *l)
         return 1;
     }
 
-    if (ngx_lua_req_parse_post_arg(&ctx->request_body, &key, &value) != NGX_OK)
+    if (ngx_lua_req_get_posted_arg(&ctx->request_body, &key, &value) != NGX_OK)
     {
         lua_pushnil(l);
         return 1;
     }
+
+    /* TODO: unescape */
 
     lua_pushlstring(l, (char *) value.data, value.len);
 
@@ -473,28 +475,39 @@ ngx_lua_req_copy_request_body(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         return NGX_OK;
     }
 
-    /* TODO: r->request_body->bufs == NULL */
+    if (r->request_body->bufs != NULL) {
+        cl = r->request_body->bufs;
+        buf = cl->buf;
 
-    cl = r->request_body->bufs;
-    buf = cl->buf;
+        if (cl->next == NULL) {
+            ctx->request_body.len = buf->last - buf->pos;
+            ctx->request_body.data = buf->pos;
 
-    if (cl->next == NULL) {
-        ctx->request_body.len = buf->last - buf->pos;
-        ctx->request_body.data = buf->pos;
+            return NGX_OK;
+        }
 
-        return NGX_OK;
+        next = cl->next->buf;
+        len = (buf->last - buf->pos) + (next->last - next->pos);
+
+        p = ngx_pnalloc(r->pool, len);
+        if (p == NULL) {
+            return NGX_ERROR;
+        }
+
+        p = ngx_cpymem(p, buf->pos, buf->last - buf->pos);
+        ngx_memcpy(p, next->pos, next->last - next->pos);
+
+    } else {
+
+        /*
+         * r->request_body->bufs == NULL and r->request_body->temp_file != NULL
+         */
+
+        /* TODO */
+
+        len = 0;
+        p = NULL;
     }
-
-    next = cl->next->buf;
-    len = (buf->last - buf->pos) + (next->last - next->pos);
-
-    p = ngx_pnalloc(r->pool, len);
-    if (p == NULL) {
-        return NGX_ERROR;
-    }
-
-    p = ngx_cpymem(p, buf->pos, buf->last - buf->pos);
-    ngx_memcpy(p, next->pos, next->last - next->pos);
 
     ctx->request_body.len = len;
     ctx->request_body.data = p;
@@ -504,12 +517,12 @@ ngx_lua_req_copy_request_body(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
 
 static ngx_int_t
-ngx_lua_req_parse_post_arg(ngx_str_t *post, ngx_str_t *key, ngx_str_t *value)
+ngx_lua_req_get_posted_arg(ngx_str_t *posted, ngx_str_t *key, ngx_str_t *value)
 {
     u_char  *p, *last;
 
-    p = post->data;
-    last = p + post->len;
+    p = posted->data;
+    last = p + posted->len;
 
     for ( /* void */ ; p < last; p++) {
 
@@ -521,14 +534,14 @@ ngx_lua_req_parse_post_arg(ngx_str_t *post, ngx_str_t *key, ngx_str_t *value)
             return NGX_DECLINED;
         }
 
-        if ((p == post->data || *(p - 1) == '&') && *(p + key->len) == '=') {
+        if ((p == posted->data || *(p - 1) == '&') && *(p + key->len) == '=') {
 
             value->data = p + key->len + 1;
 
             p = ngx_strlchr(p, last, '&');
 
             if (p == NULL) {
-                p = post->data + post->len;
+                p = posted->data + posted->len;
             }
 
             value->len = p - value->data;

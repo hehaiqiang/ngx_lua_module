@@ -10,6 +10,8 @@
 
 
 static int ngx_lua_resp_write(lua_State *l);
+static int ngx_lua_resp_headers_newindex(lua_State *l);
+static int ngx_lua_resp_cookies_newindex(lua_State *l);
 static int ngx_lua_resp_newindex(lua_State *l);
 
 
@@ -83,12 +85,18 @@ ngx_lua_resp_api_init(lua_State *l)
         lua_setfield(l, -2, ngx_lua_resp_methods[i].name);
     }
 
-    /* TODO: the metatable of the table "headers" */
     lua_newtable(l);
+    lua_createtable(l, 0, 1);
+    lua_pushcfunction(l, ngx_lua_resp_headers_newindex);
+    lua_setfield(l, -2, "__newindex");
+    lua_setmetatable(l, -2);
     lua_setfield(l, -2, "headers");
 
-    /* TODO: the metatable of the table "cookies" */
     lua_newtable(l);
+    lua_createtable(l, 0, 1);
+    lua_pushcfunction(l, ngx_lua_resp_cookies_newindex);
+    lua_setfield(l, -2, "__newindex");
+    lua_setmetatable(l, -2);
     lua_setfield(l, -2, "cookies");
 
     lua_createtable(l, 0, 1);
@@ -111,6 +119,22 @@ ngx_lua_resp_write(lua_State *l)
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
     ngx_lua_output(r, str.data, str.len);
 
+    return 0;
+}
+
+
+static int
+ngx_lua_resp_headers_newindex(lua_State *l)
+{
+    /* TODO: */
+    return 0;
+}
+
+
+static int
+ngx_lua_resp_cookies_newindex(lua_State *l)
+{
+    /* TODO: */
     return 0;
 }
 
