@@ -6,7 +6,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_api.h>
+#include <ngx_lua_module.h>
 
 
 static int ngx_lua_var_index(lua_State *l);

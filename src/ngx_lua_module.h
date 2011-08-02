@@ -41,6 +41,12 @@ typedef struct {
 } ngx_lua_ctx_t;
 
 
+typedef struct {
+    char           *name;
+    int             value;
+} ngx_lua_const_t;
+
+
 ngx_int_t ngx_lua_state_new(ngx_conf_t *cf, ngx_lua_main_conf_t *lmcf);
 void ngx_lua_state_close(void *data);
 
@@ -54,11 +60,14 @@ void ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc);
 
 ngx_int_t ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 
+void ngx_lua_dbd_api_init(lua_State *l);
+void ngx_lua_log_api_init(lua_State *l);
+void ngx_lua_req_api_init(lua_State *l);
+void ngx_lua_resp_api_init(lua_State *l);
+void ngx_lua_var_api_init(lua_State *l);
+
 
 extern ngx_module_t  ngx_lua_module;
-
-
-#include <ngx_lua_api.h>
 
 
 #endif /* _NGX_LUA_MODULE_H_INCLUDED_ */
