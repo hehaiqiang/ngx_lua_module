@@ -60,11 +60,11 @@ void ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc);
 
 ngx_int_t ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 
-void ngx_lua_dbd_api_init(lua_State *l);
-void ngx_lua_log_api_init(lua_State *l);
-void ngx_lua_req_api_init(lua_State *l);
-void ngx_lua_resp_api_init(lua_State *l);
-void ngx_lua_var_api_init(lua_State *l);
+void ngx_lua_database_api_init(lua_State *l);
+void ngx_lua_logger_api_init(lua_State *l);
+void ngx_lua_request_api_init(lua_State *l);
+void ngx_lua_response_api_init(lua_State *l);
+void ngx_lua_variable_api_init(lua_State *l);
 
 
 extern ngx_module_t  ngx_lua_module;

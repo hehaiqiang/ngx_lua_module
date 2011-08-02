@@ -9,13 +9,13 @@
 #include <ngx_lua_module.h>
 
 
-static int ngx_lua_resp_write(lua_State *l);
-static int ngx_lua_resp_headers_newindex(lua_State *l);
-static int ngx_lua_resp_cookies_newindex(lua_State *l);
-static int ngx_lua_resp_newindex(lua_State *l);
+static int ngx_lua_response_write(lua_State *l);
+static int ngx_lua_response_headers_newindex(lua_State *l);
+static int ngx_lua_response_cookies_newindex(lua_State *l);
+static int ngx_lua_response_newindex(lua_State *l);
 
 
-static ngx_lua_const_t  ngx_lua_resp_consts[] = {
+static ngx_lua_const_t  ngx_lua_response_consts[] = {
     { "OK", NGX_HTTP_OK },
     { "CREATED", NGX_HTTP_CREATED },
     { "ACCEPTED", NGX_HTTP_ACCEPTED },
@@ -59,57 +59,57 @@ static ngx_lua_const_t  ngx_lua_resp_consts[] = {
 };
 
 
-static luaL_Reg  ngx_lua_resp_methods[] = {
-    { "write", ngx_lua_resp_write },
+static luaL_Reg  ngx_lua_response_methods[] = {
+    { "write", ngx_lua_response_write },
     { NULL, NULL }
 };
 
 
 void
-ngx_lua_resp_api_init(lua_State *l)
+ngx_lua_response_api_init(lua_State *l)
 {
     int  i, n;
 
-    n = sizeof(ngx_lua_resp_consts) / sizeof(ngx_lua_const_t) - 1;
-    n += sizeof(ngx_lua_resp_methods) / sizeof(luaL_Reg) - 1;
+    n = sizeof(ngx_lua_response_consts) / sizeof(ngx_lua_const_t) - 1;
+    n += sizeof(ngx_lua_response_methods) / sizeof(luaL_Reg) - 1;
 
     lua_createtable(l, 2, n);
 
-    for (i = 0; ngx_lua_resp_consts[i].name != NULL; i++) {
-        lua_pushinteger(l, ngx_lua_resp_consts[i].value);
-        lua_setfield(l, -2, ngx_lua_resp_consts[i].name);
+    for (i = 0; ngx_lua_response_consts[i].name != NULL; i++) {
+        lua_pushinteger(l, ngx_lua_response_consts[i].value);
+        lua_setfield(l, -2, ngx_lua_response_consts[i].name);
     }
 
-    for (i = 0; ngx_lua_resp_methods[i].name != NULL; i++) {
-        lua_pushcfunction(l, ngx_lua_resp_methods[i].func);
-        lua_setfield(l, -2, ngx_lua_resp_methods[i].name);
+    for (i = 0; ngx_lua_response_methods[i].name != NULL; i++) {
+        lua_pushcfunction(l, ngx_lua_response_methods[i].func);
+        lua_setfield(l, -2, ngx_lua_response_methods[i].name);
     }
 
     lua_newtable(l);
     lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_resp_headers_newindex);
+    lua_pushcfunction(l, ngx_lua_response_headers_newindex);
     lua_setfield(l, -2, "__newindex");
     lua_setmetatable(l, -2);
     lua_setfield(l, -2, "headers");
 
     lua_newtable(l);
     lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_resp_cookies_newindex);
+    lua_pushcfunction(l, ngx_lua_response_cookies_newindex);
     lua_setfield(l, -2, "__newindex");
     lua_setmetatable(l, -2);
     lua_setfield(l, -2, "cookies");
 
     lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_resp_newindex);
+    lua_pushcfunction(l, ngx_lua_response_newindex);
     lua_setfield(l, -2, "__newindex");
     lua_setmetatable(l, -2);
 
-    lua_setfield(l, -2, "resp");
+    lua_setfield(l, -2, "response");
 }
 
 
 static int
-ngx_lua_resp_write(lua_State *l)
+ngx_lua_response_write(lua_State *l)
 {
     ngx_str_t            str;
     ngx_http_request_t  *r;
@@ -124,7 +124,7 @@ ngx_lua_resp_write(lua_State *l)
 
 
 static int
-ngx_lua_resp_headers_newindex(lua_State *l)
+ngx_lua_response_headers_newindex(lua_State *l)
 {
     /* TODO: */
     return 0;
@@ -132,7 +132,7 @@ ngx_lua_resp_headers_newindex(lua_State *l)
 
 
 static int
-ngx_lua_resp_cookies_newindex(lua_State *l)
+ngx_lua_response_cookies_newindex(lua_State *l)
 {
     /* TODO: */
     return 0;
@@ -140,7 +140,7 @@ ngx_lua_resp_cookies_newindex(lua_State *l)
 
 
 static int
-ngx_lua_resp_newindex(lua_State *l)
+ngx_lua_response_newindex(lua_State *l)
 {
     ngx_str_t            key, value, str;
     ngx_http_request_t  *r;

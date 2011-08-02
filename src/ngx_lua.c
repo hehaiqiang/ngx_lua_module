@@ -381,11 +381,11 @@ ngx_lua_api_init(lua_State *l)
         lua_setfield(l, -2, ngx_lua_consts[n].name);
     }
 
-    ngx_lua_dbd_api_init(l);
-    ngx_lua_log_api_init(l);
-    ngx_lua_req_api_init(l);
-    ngx_lua_resp_api_init(l);
-    ngx_lua_var_api_init(l);
+    ngx_lua_database_api_init(l);
+    ngx_lua_logger_api_init(l);
+    ngx_lua_request_api_init(l);
+    ngx_lua_response_api_init(l);
+    ngx_lua_variable_api_init(l);
 
     lua_setglobal(l, "nginx");
 }

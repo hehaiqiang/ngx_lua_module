@@ -9,23 +9,23 @@
 #include <ngx_lua_module.h>
 
 
-static int ngx_lua_var_index(lua_State *l);
+static int ngx_lua_variable_index(lua_State *l);
 
 
 void
-ngx_lua_var_api_init(lua_State *l)
+ngx_lua_variable_api_init(lua_State *l)
 {
     lua_newtable(l);
     lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_var_index);
+    lua_pushcfunction(l, ngx_lua_variable_index);
     lua_setfield(l, -2, "__index");
     lua_setmetatable(l, -2);
-    lua_setfield(l, -2, "var");
+    lua_setfield(l, -2, "variable");
 }
 
 
 static int
-ngx_lua_var_index(lua_State *l)
+ngx_lua_variable_index(lua_State *l)
 {
     u_char                     *p;
     ngx_str_t                   name;

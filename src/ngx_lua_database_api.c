@@ -107,7 +107,7 @@ static luaL_Reg  ngx_lua_dbd_methods[] = {
 
 
 void
-ngx_lua_dbd_api_init(lua_State *l)
+ngx_lua_database_api_init(lua_State *l)
 {
     int  i;
 
