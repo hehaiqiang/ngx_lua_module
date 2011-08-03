@@ -125,7 +125,7 @@ ngx_lua_database_api_init(lua_State *l)
     lua_createtable(l, 0, 1);
     lua_pushcfunction(l, ngx_lua_dbd_create);
     lua_setfield(l, -2, "create");
-    lua_setfield(l, -2, "dbd");
+    lua_setfield(l, -2, "database");
 }
 
 
