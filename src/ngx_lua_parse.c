@@ -9,12 +9,14 @@
 #include <ngx_lua_module.h>
 
 
-#if 0
-#define NGX_LUA_OUTPUT_START  "ngx_lua_output_str([["
-#else
-#define NGX_LUA_OUTPUT_START  "print([["
-#endif
-#define NGX_LUA_OUTPUT_END    "]]);"
+#define NGX_LUA_FUNCTION_START  "return function() local print = print "
+#define NGX_LUA_FUNCTION_END    " end"
+
+#define NGX_LUA_PRINT_START     " print([["
+#define NGX_LUA_PRINT_END       "]]) "
+
+#define NGX_LUA_EXP_PRINT_START  " print("
+#define NGX_LUA_EXP_PRINT_END    ") "
 
 
 ngx_int_t
@@ -99,8 +101,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     dquoted = 0;
     squoted = 0;
 
-    out = ngx_cpymem(ctx->buf->last, "return function() local print = print ",
-                     sizeof("return function() local print = print ") - 1);
+    out = ngx_cpymem(ctx->buf->last, NGX_LUA_FUNCTION_START,
+                     sizeof(NGX_LUA_FUNCTION_START) - 1);
 
     /* TODO */
 
@@ -118,8 +120,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
                 break;
             }
 
-            out = ngx_cpymem(out, NGX_LUA_OUTPUT_START,
-                             sizeof(NGX_LUA_OUTPUT_START) - 1);
+            out = ngx_cpymem(out, NGX_LUA_PRINT_START,
+                             sizeof(NGX_LUA_PRINT_START) - 1);
 
             *out++ = ch;
 
@@ -151,8 +153,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
                 html_start = lua_start;
                 lua_start = NULL;
 
-                out = ngx_cpymem(out, NGX_LUA_OUTPUT_START,
-                                 sizeof(NGX_LUA_OUTPUT_START) - 1);
+                out = ngx_cpymem(out, NGX_LUA_PRINT_START,
+                                 sizeof(NGX_LUA_PRINT_START) - 1);
             }
 
             *out++ = '<';
@@ -165,8 +167,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
             if (html_start != NULL) {
                 html_start = NULL;
 
-                out = ngx_cpymem(out, NGX_LUA_OUTPUT_END,
-                                 sizeof(NGX_LUA_OUTPUT_END) - 1);
+                out = ngx_cpymem(out, NGX_LUA_PRINT_END,
+                                 sizeof(NGX_LUA_PRINT_END) - 1);
             }
 
             backslash = 0;
@@ -251,10 +253,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
             break;
 
         case sw_lua_exp_block_start:
-
-            /* TODO: xxx */
-
-            out = ngx_cpymem(out, "print(", sizeof("print(") - 1);
+            out = ngx_cpymem(out, NGX_LUA_EXP_PRINT_START,
+                             sizeof(NGX_LUA_EXP_PRINT_START) - 1);
 
             *out++ = ch;
 
@@ -323,7 +323,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
             /* TODO: xxx */
 
-            out = ngx_cpymem(out, ");", sizeof(");") - 1);
+            out = ngx_cpymem(out, NGX_LUA_EXP_PRINT_END,
+                             sizeof(NGX_LUA_EXP_PRINT_END) - 1);
 
             lua_start = NULL;
 
@@ -341,11 +342,11 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     }
 
     if (html_start != NULL) {
-        out = ngx_cpymem(out, NGX_LUA_OUTPUT_END,
-                         sizeof(NGX_LUA_OUTPUT_END) - 1);
+        out = ngx_cpymem(out, NGX_LUA_PRINT_END, sizeof(NGX_LUA_PRINT_END) - 1);
     }
 
-    out = ngx_cpymem(out, " end", sizeof(" end") - 1);
+    out = ngx_cpymem(out, NGX_LUA_FUNCTION_END,
+                     sizeof(NGX_LUA_FUNCTION_END) - 1);
 
     ctx->buf->last = out;
 
