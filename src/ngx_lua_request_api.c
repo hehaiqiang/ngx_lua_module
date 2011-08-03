@@ -283,7 +283,7 @@ ngx_lua_request_post_index(lua_State *l)
 static int
 ngx_lua_request_index(lua_State *l)
 {
-    ngx_str_t            key;
+    ngx_str_t            key, value;
     ngx_time_t          *tp;
     ngx_msec_int_t       ms;
     ngx_http_request_t  *r;
@@ -411,9 +411,12 @@ ngx_lua_request_index(lua_State *l)
         break;
     }
 
-    lua_pushnil(l);
+    if (ngx_http_arg(r, key.data, key.len, &value) == NGX_OK) {
+        lua_pushlstring(l, (char *) value.data, value.len);
+        return 1;
+    }
 
-    return 1;
+    return ngx_lua_request_post_index(l);
 }
 #if 0
     ngx_table_elt_t                  *connection;
