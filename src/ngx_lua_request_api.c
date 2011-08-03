@@ -208,6 +208,7 @@ ngx_lua_request_get_index(lua_State *l)
 static int
 ngx_lua_request_post_index(lua_State *l)
 {
+    u_char              *dst, *src;
     ngx_str_t            key, value;
     ngx_lua_ctx_t       *ctx;
     ngx_http_request_t  *r;
@@ -272,7 +273,19 @@ ngx_lua_request_post_index(lua_State *l)
         return 1;
     }
 
-    /* TODO: unescape */
+    /* unescape uri */
+
+    dst = ngx_palloc(r->pool, value.len);
+    if (dst == NULL) {
+        return luaL_error(l, "ngx_palloc() failed");
+    }
+
+    src = value.data;
+    value.data = dst;
+
+    ngx_unescape_uri(&dst, &src, value.len, 0);
+
+    value.len = dst - value.data;
 
     lua_pushlstring(l, (char *) value.data, value.len);
 
@@ -418,49 +431,6 @@ ngx_lua_request_index(lua_State *l)
 
     return ngx_lua_request_post_index(l);
 }
-#if 0
-    ngx_table_elt_t                  *connection;
-    ngx_table_elt_t                  *if_modified_since;
-    ngx_table_elt_t                  *if_unmodified_since;
-    ngx_table_elt_t                  *content_length;
-    ngx_table_elt_t                  *content_type;
-    ngx_table_elt_t                  *range;
-    ngx_table_elt_t                  *if_range;
-    ngx_table_elt_t                  *transfer_encoding;
-    ngx_table_elt_t                  *expect;
-#if (NGX_HTTP_GZIP)
-    ngx_table_elt_t                  *accept_encoding;
-    ngx_table_elt_t                  *via;
-#endif
-    ngx_table_elt_t                  *authorization;
-    ngx_table_elt_t                  *keep_alive;
-#if (NGX_HTTP_PROXY || NGX_HTTP_REALIP || NGX_HTTP_GEO)
-    ngx_table_elt_t                  *x_forwarded_for;
-#endif
-#if (NGX_HTTP_REALIP)
-    ngx_table_elt_t                  *x_real_ip;
-#endif
-#if (NGX_HTTP_HEADERS)
-    ngx_table_elt_t                  *accept;
-    ngx_table_elt_t                  *accept_language;
-#endif
-#if (NGX_HTTP_DAV)
-    ngx_table_elt_t                  *date;
-#endif
-    ngx_str_t                         user;
-    ngx_str_t                         passwd;
-    ngx_str_t                         server;
-    off_t                             content_length_n;
-    time_t                            keep_alive_n;
-    unsigned                          msie:1;
-    unsigned                          msie4:1;
-    unsigned                          msie6:1;
-    unsigned                          opera:1;
-    unsigned                          gecko:1;
-    unsigned                          chrome:1;
-    unsigned                          safari:1;
-    unsigned                          konqueror:1;
-#endif
 
 
 static ngx_int_t
@@ -509,8 +479,7 @@ ngx_lua_request_copy_request_body(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
         /* TODO */
 
-        len = 0;
-        p = NULL;
+        return NGX_ERROR;
     }
 
     ctx->request_body.len = len;
