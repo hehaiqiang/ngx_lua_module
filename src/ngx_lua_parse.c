@@ -99,8 +99,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     dquoted = 0;
     squoted = 0;
 
-    out = ngx_cpymem(ctx->buf->last, "return function() ",
-                     sizeof("return function() ") - 1);
+    out = ngx_cpymem(ctx->buf->last, "return function() local print = print ",
+                     sizeof("return function() local print = print ") - 1);
 
     /* TODO */
 
