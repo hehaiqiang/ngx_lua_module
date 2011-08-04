@@ -11,7 +11,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-#include <ngx_dbd.h>
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -34,8 +33,6 @@ typedef struct {
 
     lua_State      *l;
     int             ref;
-    ngx_dbd_t      *dbd;
-    int             cmd;
 
     ngx_str_t       request_body;
 } ngx_lua_ctx_t;
@@ -60,7 +57,7 @@ void ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc);
 
 ngx_int_t ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 
-void ngx_lua_database_api_init(lua_State *l);
+void ngx_lua_dbd_api_init(lua_State *l);
 void ngx_lua_logger_api_init(lua_State *l);
 void ngx_lua_request_api_init(lua_State *l);
 void ngx_lua_response_api_init(lua_State *l);
