@@ -441,10 +441,6 @@ ngx_lua_request_copy_request_body(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     ngx_buf_t    *buf, *next;
     ngx_chain_t  *cl;
 
-    if (r->request_body->bufs == NULL && r->request_body->temp_file == NULL) {
-        return NGX_DECLINED;
-    }
-
     if (ctx->request_body.len) {
         return NGX_OK;
     }
@@ -471,15 +467,15 @@ ngx_lua_request_copy_request_body(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         p = ngx_cpymem(p, buf->pos, buf->last - buf->pos);
         ngx_memcpy(p, next->pos, next->last - next->pos);
 
+    } else if (r->request_body->temp_file != NULL) {
+
+        /* TODO: reading request body from temp file */
+
+        len = 0;
+        p = NULL;
+
     } else {
-
-        /*
-         * r->request_body->bufs == NULL and r->request_body->temp_file != NULL
-         */
-
-        /* TODO */
-
-        return NGX_ERROR;
+        return NGX_DECLINED;
     }
 
     ctx->request_body.len = len;
