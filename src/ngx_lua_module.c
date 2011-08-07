@@ -142,7 +142,7 @@ ngx_lua_handle_request(ngx_http_request_t *r)
 
     ctx->ref = LUA_NOREF;
 
-    /* TODO: lua code caching */
+    /* TODO: lua code compiling and caching */
 
     if (ngx_lua_parse(r, ctx) == NGX_ERROR) {
         /* TODO: parsing error */
