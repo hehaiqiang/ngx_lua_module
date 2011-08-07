@@ -273,18 +273,17 @@ ngx_lua_request_post_index(lua_State *l)
         return 1;
     }
 
-    /* unescape uri */
+    /* TODO: unescape uri */
 
-    dst = ngx_palloc(r->pool, value.len);
+    dst = ngx_pnalloc(r->pool, value.len);
     if (dst == NULL) {
         return luaL_error(l, "ngx_palloc() failed");
     }
 
     src = value.data;
+
     value.data = dst;
-
     ngx_unescape_uri(&dst, &src, value.len, 0);
-
     value.len = dst - value.data;
 
     lua_pushlstring(l, (char *) value.data, value.len);
