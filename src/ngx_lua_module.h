@@ -61,6 +61,7 @@ void ngx_lua_dbd_api_init(lua_State *l);
 void ngx_lua_logger_api_init(lua_State *l);
 void ngx_lua_request_api_init(lua_State *l);
 void ngx_lua_response_api_init(lua_State *l);
+void ngx_lua_session_api_init(lua_State *l);
 void ngx_lua_variable_api_init(lua_State *l);
 
 

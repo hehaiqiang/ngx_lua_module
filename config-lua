@@ -1,0 +1,14 @@
+
+# Copyright (C) Ngwsx
+
+
+LUA="$ngx_addon_dir/../../../lib/lua"
+
+if [ "$NGX_PLATFORM" != win32 ]; then
+	LUA_LIBS="-L$LUA/libs/unix -llua -lm"
+else
+	LUA_LIBS="$LUA/libs/win32/liblua.lib"
+fi
+
+CORE_INCS="$CORE_INCS $LUA/incs"
+CORE_LIBS="$CORE_LIBS $LUA_LIBS"

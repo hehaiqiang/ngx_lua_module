@@ -3,19 +3,20 @@ local print = print
 local nginx = nginx
 local session = nginx.session
 
-print("<hr>")
-print("test")
-do return end
+session.create()
+session.set_param("test", 1)
+session.get_param("test")
+session["test"] = "test"
+session["test_int"] = 1
+print(session["test"] or "")
+print(session["test_int"] or 2)
+session["test"] = nil
+session["test_int"] = nil
+session.destroy()
 %>
 <html>
 <head>
 </head>
 <body>
-<hr>
-<%
--- test the table "nginx.session"
--- TODO
-print("<hr>")
-%>
 </body>
 </html>
