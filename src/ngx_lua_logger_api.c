@@ -46,21 +46,21 @@ static luaL_Reg  ngx_lua_logger_methods[] = {
 void
 ngx_lua_logger_api_init(lua_State *l)
 {
-    int  i, n;
+    int  n;
 
     n = sizeof(ngx_lua_logger_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_logger_methods) / sizeof(luaL_Reg) - 1;
 
     lua_createtable(l, 0, n);
 
-    for (i = 0; ngx_lua_logger_consts[i].name != NULL; i++) {
-        lua_pushinteger(l, ngx_lua_logger_consts[i].value);
-        lua_setfield(l, -2, ngx_lua_logger_consts[i].name);
+    for (n = 0; ngx_lua_logger_consts[n].name != NULL; n++) {
+        lua_pushinteger(l, ngx_lua_logger_consts[n].value);
+        lua_setfield(l, -2, ngx_lua_logger_consts[n].name);
     }
 
-    for (i = 0; ngx_lua_logger_methods[i].name != NULL; i++) {
-        lua_pushcfunction(l, ngx_lua_logger_methods[i].func);
-        lua_setfield(l, -2, ngx_lua_logger_methods[i].name);
+    for (n = 0; ngx_lua_logger_methods[n].name != NULL; n++) {
+        lua_pushcfunction(l, ngx_lua_logger_methods[n].func);
+        lua_setfield(l, -2, ngx_lua_logger_methods[n].name);
     }
 
     lua_setfield(l, -2, "logger");
