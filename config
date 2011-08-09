@@ -22,10 +22,12 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/ngx_lua_parse.c \
 	$ngx_addon_dir/src/ngx_lua_core_api.c \
 	$ngx_addon_dir/src/ngx_lua_database_api.c \
+	$ngx_addon_dir/src/ngx_lua_file_api.c \
 	$ngx_addon_dir/src/ngx_lua_logger_api.c \
 	$ngx_addon_dir/src/ngx_lua_request_api.c \
 	$ngx_addon_dir/src/ngx_lua_response_api.c \
 	$ngx_addon_dir/src/ngx_lua_session_api.c \
+	$ngx_addon_dir/src/ngx_lua_socket_api.c \
 	$ngx_addon_dir/src/ngx_lua_variable_api.c"
 
 USE_SHA1=YES

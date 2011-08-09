@@ -77,10 +77,12 @@ ngx_lua_api_init(lua_State *l)
     }
 
     ngx_lua_dbd_api_init(l);
+    ngx_lua_file_api_init(l);
     ngx_lua_logger_api_init(l);
     ngx_lua_request_api_init(l);
     ngx_lua_response_api_init(l);
     ngx_lua_session_api_init(l);
+    ngx_lua_socket_api_init(l);
     ngx_lua_variable_api_init(l);
 
     lua_setglobal(l, "nginx");

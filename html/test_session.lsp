@@ -5,7 +5,7 @@ local session = nginx.session
 
 session.create()
 session.set_param("test", 1)
-session.get_param("test")
+print(session.get_param("test") or "error")
 session["test"] = "test"
 session["test_int"] = 1
 print(session["test"] or "")
