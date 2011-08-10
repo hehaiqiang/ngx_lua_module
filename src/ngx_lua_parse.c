@@ -9,11 +9,11 @@
 #include <ngx_lua_module.h>
 
 
-#define NGX_LUA_FUNCTION_START  "return function() local print = print "
-#define NGX_LUA_FUNCTION_END    " end"
+#define NGX_LUA_FUNCTION_START   "return function() local print = print "
+#define NGX_LUA_FUNCTION_END     " end"
 
-#define NGX_LUA_PRINT_START     " print([["
-#define NGX_LUA_PRINT_END       "]]) "
+#define NGX_LUA_PRINT_START      " print([["
+#define NGX_LUA_PRINT_END        "]]) "
 
 #define NGX_LUA_EXP_PRINT_START  " print("
 #define NGX_LUA_EXP_PRINT_END    ") "
@@ -22,13 +22,8 @@
 ngx_int_t
 ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 {
-    size_t            size;
-    u_char           *p, ch, *out, *html_start, *lua_start, *lua_end;
-    ssize_t           n;
-    ngx_fd_t          fd;
-    ngx_err_t         err;
-    ngx_uint_t        backslash, dquoted, squoted;
-    ngx_file_info_t   fi;
+    u_char      *p, ch, *out, *html_start, *lua_start, *lua_end;
+    ngx_uint_t   backslash, dquoted, squoted;
     enum {
         sw_start = 0,
         sw_html_block,
@@ -41,57 +36,6 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         sw_lua_exp_block_end,
         sw_error
     } state;
-
-    fd = ngx_open_file(ctx->path.data, NGX_FILE_RDONLY, NGX_FILE_OPEN,
-                       NGX_FILE_DEFAULT_ACCESS);
-    if (fd == NGX_INVALID_FILE) {
-        err = ngx_errno;
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, err,
-                      ngx_open_file_n " \"%s\" failed", ctx->path.data);
-
-        switch (err) {
-        case NGX_ENOENT:
-        case NGX_ENOTDIR:
-        case NGX_ENAMETOOLONG:
-            return NGX_HTTP_NOT_FOUND;
-        case NGX_EACCES:
-            return NGX_HTTP_FORBIDDEN;
-        default:
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-    }
-
-    if (ngx_fd_info(fd, &fi) == NGX_FILE_ERROR) {
-        ngx_close_file(fd);
-        return NGX_ERROR;
-    }
-
-    size = (size_t) ngx_file_size(&fi);
-
-    ctx->lsp = ngx_create_temp_buf(r->pool, size);
-    if (ctx->lsp == NULL) {
-        ngx_close_file(fd);
-        return NGX_ERROR;
-    }
-
-    n = ngx_read_fd(fd, ctx->lsp->pos, size);
-    if (n == NGX_FILE_ERROR || n != (ssize_t) size) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
-                      ngx_read_fd_n " failed");
-        ngx_close_file(fd);
-        return NGX_ERROR;
-    }
-
-    ctx->lsp->last += n;
-
-    ngx_close_file(fd);
-
-    size = ngx_max(size * 2, ngx_pagesize);
-
-    ctx->buf = ngx_create_temp_buf(r->pool, size);
-    if (ctx->buf == NULL) {
-        return NGX_ERROR;
-    }
 
     state = sw_start;
 

@@ -24,6 +24,8 @@ typedef struct {
 
 
 typedef struct {
+    ngx_file_t      file;
+    size_t          size;
     ngx_str_t       path;
     ngx_buf_t      *lsp;
     ngx_buf_t      *buf;
