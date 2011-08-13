@@ -12,7 +12,9 @@
 static void ngx_lua_init_request(ngx_http_request_t *r);
 static void ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 static void ngx_lua_aio_handler(ngx_event_t *ev);
-static const char *ngx_lua_reader(lua_State *lua, void *data, size_t *size);
+static const char *ngx_lua_reader(lua_State *l, void *data, size_t *size);
+static int ngx_lua_writer(lua_State *l, const void *buf, size_t size,
+    void *data);
 static void ngx_lua_cleanup(void *data);
 
 static ngx_int_t ngx_lua_init(ngx_conf_t *cf);
@@ -42,6 +44,27 @@ static ngx_command_t  ngx_lua_commands[] = {
       ngx_conf_set_str_slot,
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(ngx_lua_main_conf_t, cpath),
+      NULL },
+
+    { ngx_string("lua_cache_expire"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_sec_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_lua_main_conf_t, cache_expire),
+      NULL },
+
+    { ngx_string("lua_cache_zone"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_lua_main_conf_t, cache_zone),
+      NULL },
+
+    { ngx_string("lua_cache_size"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(ngx_lua_main_conf_t, cache_size),
       NULL },
 
       ngx_null_command
@@ -116,6 +139,7 @@ ngx_lua_handler(ngx_http_request_t *r)
     }
 
     ctx->size = (size_t) ngx_file_size(&fi);
+    ctx->mtime = ngx_file_mtime(&fi);
 
     r->request_body_in_single_buf = 1;
     r->request_body_in_persistent_file = 1;
@@ -145,20 +169,33 @@ ngx_lua_init_request(ngx_http_request_t *r)
     ngx_file_t     *file;
     ngx_lua_ctx_t  *ctx;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua init request");
+
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
     ctx->ref = LUA_NOREF;
 
-    ctx->lsp = ngx_create_temp_buf(r->pool, ctx->size);
-    if (ctx->lsp == NULL) {
+    /* TODO: size */
+
+    size = ngx_max(ctx->size * 4, ngx_pagesize);
+
+    ctx->buf = ngx_create_temp_buf(r->pool, size);
+    if (ctx->buf == NULL) {
         ngx_lua_finalize(r, NGX_ERROR);
         return;
     }
 
-    size = ngx_max(ctx->size * 2, ngx_pagesize);
+    /* get lua byte-code from cache */
 
-    ctx->buf = ngx_create_temp_buf(r->pool, size);
-    if (ctx->buf == NULL) {
+    if (ngx_lua_cache_get(r, ctx) == NGX_OK) {
+        ctx->cached = 1;
+        ngx_lua_handle_request(r, ctx);
+        return;
+    }
+
+    ctx->lsp = ngx_create_temp_buf(r->pool, ctx->size);
+    if (ctx->lsp == NULL) {
         ngx_lua_finalize(r, NGX_ERROR);
         return;
     }
@@ -229,12 +266,15 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     ngx_http_cleanup_t   *cln;
     ngx_lua_main_conf_t  *lmcf;
 
-    /* TODO: lua code compiling and caching */
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua handle request");
 
-    if (ngx_lua_parse(r, ctx) == NGX_ERROR) {
-        /* TODO: parsing error */
-        ngx_lua_finalize(r, NGX_ERROR);
-        return;
+    if (!ctx->cached) {
+        if (ngx_lua_parse(r, ctx) == NGX_ERROR) {
+            /* TODO: parsing error */
+            ngx_lua_finalize(r, NGX_ERROR);
+            return;
+        }
     }
 
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
@@ -251,6 +291,31 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
         ngx_lua_finalize(r, NGX_ERROR);
         return;
+    }
+
+    if (!ctx->cached) {
+
+        /* save lua byte-code to cache */
+
+        ctx->buf->pos = ctx->buf->start;
+        ctx->buf->last = ctx->buf->start;
+
+        rc = lua_dump(lmcf->l, ngx_lua_writer, r);
+        if (rc != 0) {
+            lua_pop(lmcf->l, 1);
+
+            ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                          "lua_dump() rc:%d", rc);
+
+            ngx_lua_output(r, (u_char *) "lua_dump() failed",
+                           sizeof("lua_dump() failed") - 1);
+            ngx_lua_finalize(r, NGX_ERROR);
+            return;
+        }
+
+        /* TODO */
+
+        ngx_lua_cache_set(r, ctx);
     }
 
     rc = lua_pcall(lmcf->l, 0, 1, 0);
@@ -303,6 +368,9 @@ ngx_lua_aio_handler(ngx_event_t *ev)
     aio = ev->data;
     r = aio->data;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua aio handler");
+
     ev->complete = 0;
 
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
@@ -316,7 +384,7 @@ ngx_lua_aio_handler(ngx_event_t *ev)
 
 
 static const char *
-ngx_lua_reader(lua_State *s, void *data, size_t *size)
+ngx_lua_reader(lua_State *l, void *data, size_t *size)
 {
     ngx_http_request_t *r = data;
 
@@ -340,6 +408,27 @@ ngx_lua_reader(lua_State *s, void *data, size_t *size)
     b->pos += *size;
 
     return (char *) p;
+}
+
+
+static int
+ngx_lua_writer(lua_State *l, const void *buf, size_t size, void *data)
+{
+    ngx_http_request_t *r = data;
+
+    ngx_lua_ctx_t  *ctx;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua writer");
+
+    ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
+
+    if (ctx->buf->last >= ctx->buf->end) {
+        return -1;
+    }
+
+    ctx->buf->last = ngx_cpymem(ctx->buf->last, buf, size);
+
+    return 0;
 }
 
 
@@ -379,6 +468,9 @@ ngx_lua_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
+    lmcf->cache_expire = NGX_CONF_UNSET;
+    lmcf->cache_size = NGX_CONF_UNSET_SIZE;
+
     return lmcf;
 }
 
@@ -389,6 +481,30 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
     ngx_lua_main_conf_t *lmcf = conf;
 
     ngx_pool_cleanup_t  *cln;
+
+    if (lmcf->cache_zone.data == NULL) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                          "the directive \"lua_cache_zone\" must be specified");
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_conf_init_value(lmcf->cache_expire, 30 * 60);
+    ngx_conf_init_size_value(lmcf->cache_size, 1024 * 1024 * 1);
+
+    lmcf->zone = ngx_shared_memory_add(cf, &lmcf->cache_zone, lmcf->cache_size,
+                                       &ngx_lua_module);
+    if (lmcf->zone == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (lmcf->zone->data) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "duplicate zone \"%V\"", &lmcf->cache_zone);
+        return NGX_CONF_ERROR;
+    }
+
+    lmcf->zone->init = ngx_lua_cache_init;
+    lmcf->zone->data = lmcf;
 
     if (ngx_lua_state_new(cf, lmcf) == NGX_ERROR) {
         return NGX_CONF_ERROR;

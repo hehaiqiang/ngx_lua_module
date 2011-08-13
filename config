@@ -18,6 +18,7 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
 
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/ngx_lua.c \
+	$ngx_addon_dir/src/ngx_lua_cache.c \
 	$ngx_addon_dir/src/ngx_lua_module.c \
 	$ngx_addon_dir/src/ngx_lua_parse.c \
 	$ngx_addon_dir/src/ngx_lua_core_api.c \
