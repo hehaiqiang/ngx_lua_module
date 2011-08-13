@@ -107,8 +107,8 @@ ngx_lua_handler(ngx_http_request_t *r)
 {
     size_t            root;
     u_char           *last;
-    ngx_err_t         err;
     ngx_int_t         rc;
+    ngx_err_t         err;
     ngx_lua_ctx_t    *ctx;
     ngx_file_info_t   fi;
 
@@ -186,7 +186,7 @@ ngx_lua_init_request(ngx_http_request_t *r)
         return;
     }
 
-    /* get lua byte-code from cache */
+    /* getting lua byte-code from cache */
 
     if (ngx_lua_cache_get(r, ctx) == NGX_OK) {
         ctx->cached = 1;
@@ -295,7 +295,7 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
     if (!ctx->cached) {
 
-        /* save lua byte-code to cache */
+        /* saving lua byte-code to cache */
 
         ctx->buf->pos = ctx->buf->start;
         ctx->buf->last = ctx->buf->start;
@@ -312,8 +312,6 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
             ngx_lua_finalize(r, NGX_ERROR);
             return;
         }
-
-        /* TODO */
 
         ngx_lua_cache_set(r, ctx);
     }
