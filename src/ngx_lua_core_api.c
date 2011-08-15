@@ -47,6 +47,7 @@ static luaL_Reg  ngx_lua_methods[] = {
     { "murmur_hash2", ngx_lua_murmur_hash2 },
     { "md5", ngx_lua_md5 },
     { "sha1", ngx_lua_sha1 },
+    { "http", ngx_lua_http },
     { NULL, NULL }
 };
 
