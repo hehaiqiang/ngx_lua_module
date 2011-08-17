@@ -14,6 +14,7 @@ typedef struct {
     ngx_str_t                 method;
     ngx_str_t                 version;
     ngx_str_t                 url;
+    ngx_array_t               headers;
     ngx_str_t                 body;
     ngx_url_t                 u;
     ngx_peer_connection_t     peer;
@@ -72,9 +73,11 @@ static void ngx_lua_http_cleanup(void *data);
 int
 ngx_lua_http(lua_State *l)
 {
+    u_char              *p, *last;
     ngx_int_t            rc;
     ngx_str_t            str;
     ngx_pool_t          *pool;
+    ngx_keyval_t        *header;
     ngx_lua_http_ctx_t  *ctx;
     ngx_http_cleanup_t  *cln;
     ngx_http_request_t  *r;
@@ -98,6 +101,12 @@ ngx_lua_http(lua_State *l)
         return luaL_error(l, "ngx_pcalloc() failed");
     }
 
+    if (ngx_array_init(&ctx->headers, pool, 16, sizeof(ngx_keyval_t)) != NGX_OK)
+    {
+        ngx_destroy_pool(pool);
+        return luaL_error(l, "ngx_array_init() failed");
+    }
+
     ctx->pool = pool;
     ctx->connect_timeout = 60000;
     ctx->send_timeout = 60000;
@@ -112,6 +121,8 @@ ngx_lua_http(lua_State *l)
 
     cln->handler = ngx_lua_http_cleanup;
     cln->data = ctx;
+
+    /* TODO: lua_pop() */
 
     lua_getfield(l, -1, "method");
     str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
@@ -141,7 +152,38 @@ ngx_lua_http(lua_State *l)
     }
 
     lua_getfield(l, -4, "headers");
-    /* TODO */
+    if (!lua_istable(l, -1)) {
+        return luaL_error(l, "invalid argument, must be a table");
+    }
+
+    lua_pushnil(l);
+    while (lua_next(l, -2)) {
+        header = ngx_array_push(&ctx->headers);
+        if (header == NULL) {
+            return luaL_error(l, "ngx_array_push() failed");
+        }
+
+        str.data = (u_char *) luaL_checklstring(l, -2, &str.len);
+
+        header->key.len = str.len;
+        header->key.data = ngx_pstrdup(pool, &str);
+
+        for (p = header->key.data, last = p + header->key.len;
+             p < last - 1;
+             p++)
+        {
+            if (*p == '_') {
+                *p = '-';
+            }
+        }
+
+        str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
+
+        header->value.len = str.len;
+        header->value.data = ngx_pstrdup(pool, &str);
+
+        lua_pop(l, 1);
+    }
 
     lua_getfield(l, -5, "body");
     str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
@@ -231,6 +273,8 @@ ngx_lua_http_connect_handler(ngx_event_t *wev)
 {
     size_t               size;
     ngx_buf_t           *b;
+    ngx_uint_t           i;
+    ngx_keyval_t        *headers;
     ngx_connection_t    *c;
     ngx_lua_http_ctx_t  *ctx;
 
@@ -255,9 +299,14 @@ ngx_lua_http_connect_handler(ngx_event_t *wev)
     /* TODO */
 
     size = ctx->method.len + 1 + ctx->u.uri.len + 6 + ctx->version.len + 2
-           + sizeof("Host: ") - 1 + ctx->u.host.len + 1 + NGX_INT32_LEN + 2
-           + 2
-           + ctx->body.len;
+           + sizeof("Host: ") - 1 + ctx->u.host.len + 1 + NGX_INT32_LEN + 2;
+
+    headers = ctx->headers.elts;
+    for (i = 0; i < ctx->headers.nelts; i++) {
+        size += headers[i].key.len + 2 + headers[i].value.len + 2;
+    }
+
+    size += 2 + ctx->body.len;
 
     b = ngx_create_temp_buf(ctx->pool, size);
     if (b == NULL) {
@@ -280,6 +329,16 @@ ngx_lua_http_connect_handler(ngx_event_t *wev)
     b->last = ngx_slprintf(b->last, b->end, "%d", ctx->u.port);
     *b->last++ = CR;
     *b->last++ = LF;
+
+    for (i = 0; i < ctx->headers.nelts; i++) {
+        b->last = ngx_cpymem(b->last, headers[i].key.data, headers[i].key.len);
+        *b->last++ = ':';
+        *b->last++ = ' ';
+        b->last = ngx_cpymem(b->last, headers[i].value.data,
+                             headers[i].value.len);
+        *b->last++ = CR;
+        *b->last++ = LF;
+    }
 
     *b->last++ = CR;
     *b->last++ = LF;
