@@ -296,14 +296,16 @@ ngx_lua_http_connect_handler(ngx_event_t *wev)
 
     wev->handler = ngx_lua_http_write_handler;
 
-    /* TODO */
-
     size = ctx->method.len + 1 + ctx->u.uri.len + 6 + ctx->version.len + 2
            + sizeof("Host: ") - 1 + ctx->u.host.len + 1 + NGX_INT32_LEN + 2;
 
     headers = ctx->headers.elts;
     for (i = 0; i < ctx->headers.nelts; i++) {
         size += headers[i].key.len + 2 + headers[i].value.len + 2;
+    }
+
+    if (ctx->body.len) {
+        size += sizeof("Content-Length: ") - 1 + NGX_INT32_LEN + 2;
     }
 
     size += 2 + ctx->body.len;
@@ -314,34 +316,27 @@ ngx_lua_http_connect_handler(ngx_event_t *wev)
         return;
     }
 
-    b->last = ngx_cpymem(b->last, ctx->method.data, ctx->method.len);
-    *b->last++ = ' ';
-    b->last = ngx_cpymem(b->last, ctx->u.uri.data, ctx->u.uri.len);
-    *b->last++ = ' ';
-    b->last = ngx_cpymem(b->last, "HTTP/", sizeof("HTTP/") - 1);
-    b->last = ngx_cpymem(b->last, ctx->version.data, ctx->version.len);
-    *b->last++ = CR;
-    *b->last++ = LF;
-
-    b->last = ngx_cpymem(b->last, "Host: ", sizeof("Host: ") - 1);
-    b->last = ngx_cpymem(b->last, ctx->u.host.data, ctx->u.host.len);
-    *b->last++ = ':';
-    b->last = ngx_slprintf(b->last, b->end, "%d", ctx->u.port);
-    *b->last++ = CR;
-    *b->last++ = LF;
+    b->last = ngx_slprintf(b->last, b->end, "%V %V HTTP/%V" CRLF,
+                           &ctx->method, &ctx->u.uri, &ctx->version);
+    b->last = ngx_slprintf(b->last, b->end, "Host: %V:%d" CRLF,
+                           &ctx->u.host, (int) ctx->u.port);
 
     for (i = 0; i < ctx->headers.nelts; i++) {
-        b->last = ngx_cpymem(b->last, headers[i].key.data, headers[i].key.len);
-        *b->last++ = ':';
-        *b->last++ = ' ';
-        b->last = ngx_cpymem(b->last, headers[i].value.data,
-                             headers[i].value.len);
-        *b->last++ = CR;
-        *b->last++ = LF;
+        b->last = ngx_slprintf(b->last, b->end, "%V: %V" CRLF,
+                               &headers[i].key, &headers[i].value);
+    }
+
+    if (ctx->body.len) {
+        b->last = ngx_slprintf(b->last, b->end, "Content-Length: %uz" CRLF,
+                               ctx->body.len);
     }
 
     *b->last++ = CR;
     *b->last++ = LF;
+
+    if (ctx->body.len) {
+        b->last = ngx_cpymem(b->last, ctx->body.data, ctx->body.len);
+    }
 
     ctx->request = b;
 
