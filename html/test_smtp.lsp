@@ -29,7 +29,7 @@ local n,res = s:recv()
 print(n .. "<br>" .. res .. "<hr>")
 
 -- password
-local n = s:send(nginx.encode_base64("19820202") .. "\r\n")
+local n = s:send(nginx.encode_base64("xxxxxxxx") .. "\r\n")
 print(n .. "<br/>")
 local n,res = s:recv()
 print(n .. "<br>" .. res .. "<hr>")
