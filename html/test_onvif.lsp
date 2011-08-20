@@ -14,10 +14,30 @@ local res = nginx.http({
     Accept = "*/*",
     User_Agent = "Mozilla/4.0 (compatible; Win32; WinHttp.WinHttpRequest.5)"
   },
-  body = '<?xml version="1.0" encoding="utf-8"?>' ..
+  body =
+--[[
+         '<?xml version="1.0" encoding="utf-8"?>' ..
+--]]
+--[[
          '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tds="http://www.onvif.org/ver10/device/wsdl">' ..
          '<soap:Body>' ..
          '<tds:GetHostname/>' ..
+         '</soap:Body>' ..
+         '</soap:Envelope>'
+--]]
+--[[
+         '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">' ..
+         '<soap:Body>' ..
+         '<trt:GetProfiles xmlns:trt="http://www.onvif.org/ver10/media/wsdl">' ..
+         '</trt:GetProfiles>' ..
+         '</soap:Body>' ..
+         '</soap:Envelope>'
+--]]
+         '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">' ..
+         '<soap:Body>' ..
+         '<tptz:GetConfiguration xmlns:tptz="http://www.onvif.org/ver10/ptz/wsdl">' ..
+         '<PTZConfigurationToken></PTZConfigurationToken>' ..
+         '</tptz:GetConfiguration>' ..
          '</soap:Body>' ..
          '</soap:Envelope>'
 })

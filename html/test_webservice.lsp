@@ -5,8 +5,13 @@ local axis2c = nginx.axis2c
 local req = nginx.request
 
 local body = axis2c.serialize({
-  header = {},
-  body = {}
+  header = {
+    name = ""
+  },
+  body = {
+    name = "",
+    text = ""
+  }
 })
 
 local res = nginx.http({
