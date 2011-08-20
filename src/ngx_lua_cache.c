@@ -49,14 +49,14 @@ ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data)
                     ngx_lua_cache_insert_value);
     ngx_queue_init(&lmcf->cache->queue);
 
-    len = sizeof(" in lua cache zone \"\"") + shm_zone->shm.name.len;
+    len = sizeof(" in lua cache \"\"") + shm_zone->shm.name.len;
 
     lmcf->pool->log_ctx = ngx_slab_alloc(lmcf->pool, len);
     if (lmcf->pool->log_ctx == NULL) {
         return NGX_ERROR;
     }
 
-    ngx_sprintf(lmcf->pool->log_ctx, " in lua cache zone \"%V\"%Z",
+    ngx_sprintf(lmcf->pool->log_ctx, " in lua cache \"%V\"%Z",
                 &shm_zone->shm.name);
 
     return NGX_OK;

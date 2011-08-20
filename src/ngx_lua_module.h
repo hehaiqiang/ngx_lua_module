@@ -44,9 +44,9 @@ typedef struct {
 typedef struct {
     ngx_str_t             path;
     ngx_str_t             cpath;
-    time_t                cache_expire;
     ngx_str_t             cache_zone;
     size_t                cache_size;
+    time_t                cache_expire;
 
     ngx_lua_cache_t      *cache;
     ngx_slab_pool_t      *pool;

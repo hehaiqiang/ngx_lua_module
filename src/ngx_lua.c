@@ -137,6 +137,10 @@ ngx_lua_thread_close(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "lua thread close");
 
+    if (ctx->ref == LUA_NOREF) {
+        return;
+    }
+
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
 
     lua_getfield(lmcf->l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
@@ -163,6 +167,8 @@ ngx_lua_thread_close(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
     luaL_unref(lmcf->l, -1, ctx->ref);
     lua_pop(lmcf->l, 1);
+
+    ctx->ref = LUA_NOREF;
 }
 
 

@@ -20,17 +20,11 @@ static void ngx_lua_cleanup(void *data);
 static ngx_int_t ngx_lua_init(ngx_conf_t *cf);
 static void *ngx_lua_create_main_conf(ngx_conf_t *cf);
 static char *ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf);
+static char *ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_lua(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
 static ngx_command_t  ngx_lua_commands[] = {
-
-    { ngx_string("lua"),
-      NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF|NGX_HTTP_LMT_CONF|NGX_CONF_NOARGS,
-      ngx_lua,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      0,
-      NULL },
 
     { ngx_string("lua_package_path"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
@@ -46,25 +40,18 @@ static ngx_command_t  ngx_lua_commands[] = {
       offsetof(ngx_lua_main_conf_t, cpath),
       NULL },
 
-    { ngx_string("lua_cache_expire"),
-      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_sec_slot,
+    { ngx_string("lua_cache"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE3,
+      ngx_lua_cache,
       NGX_HTTP_MAIN_CONF_OFFSET,
-      offsetof(ngx_lua_main_conf_t, cache_expire),
+      0,
       NULL },
 
-    { ngx_string("lua_cache_zone"),
-      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_str_slot,
-      NGX_HTTP_MAIN_CONF_OFFSET,
-      offsetof(ngx_lua_main_conf_t, cache_zone),
-      NULL },
-
-    { ngx_string("lua_cache_size"),
-      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
-      ngx_conf_set_size_slot,
-      NGX_HTTP_MAIN_CONF_OFFSET,
-      offsetof(ngx_lua_main_conf_t, cache_size),
+    { ngx_string("lua"),
+      NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF|NGX_HTTP_LMT_CONF|NGX_CONF_NOARGS,
+      ngx_lua,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      0,
       NULL },
 
       ngx_null_command
@@ -105,12 +92,13 @@ ngx_module_t  ngx_lua_module = {
 static ngx_int_t
 ngx_lua_handler(ngx_http_request_t *r)
 {
-    size_t            root;
-    u_char           *last;
-    ngx_int_t         rc;
-    ngx_err_t         err;
-    ngx_lua_ctx_t    *ctx;
-    ngx_file_info_t   fi;
+    size_t               root;
+    u_char              *last;
+    ngx_int_t            rc;
+    ngx_err_t            err;
+    ngx_lua_ctx_t       *ctx;
+    ngx_file_info_t      fi;
+    ngx_http_cleanup_t  *cln;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua handler");
 
@@ -120,6 +108,17 @@ ngx_lua_handler(ngx_http_request_t *r)
     }
 
     ngx_http_set_ctx(r, ctx, ngx_lua_module);
+
+    ctx->ref = LUA_NOREF;
+    ctx->file.fd = NGX_INVALID_FILE;
+
+    cln = ngx_http_cleanup_add(r, 0);
+    if (cln == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    cln->handler = ngx_lua_cleanup;
+    cln->data = r;
 
     last = ngx_http_map_uri_to_path(r, &ctx->path, &root, 0);
     if (last == NULL) {
@@ -135,6 +134,8 @@ ngx_lua_handler(ngx_http_request_t *r)
     err = ngx_errno;
 
     if (rc == NGX_FILE_ERROR && (err == NGX_ENOENT || err == NGX_ENOPATH)) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, err,
+                      ngx_file_info_n " \"%V\" failed", &ctx->path);
         return NGX_HTTP_NOT_FOUND;
     }
 
@@ -150,7 +151,6 @@ ngx_lua_handler(ngx_http_request_t *r)
     }
 
     rc = ngx_http_read_client_request_body(r, ngx_lua_init_request);
-
     if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
         return rc;
     }
@@ -165,7 +165,6 @@ ngx_lua_init_request(ngx_http_request_t *r)
     int             mode;
     size_t          size;
     ssize_t         n;
-    ngx_err_t       err;
     ngx_file_t     *file;
     ngx_lua_ctx_t  *ctx;
 
@@ -173,8 +172,6 @@ ngx_lua_init_request(ngx_http_request_t *r)
                    "lua init request");
 
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
-
-    ctx->ref = LUA_NOREF;
 
     /* TODO: size */
 
@@ -185,8 +182,6 @@ ngx_lua_init_request(ngx_http_request_t *r)
         ngx_lua_finalize(r, NGX_ERROR);
         return;
     }
-
-    /* getting lua byte-code from cache */
 
     if (ngx_lua_cache_get(r, ctx) == NGX_OK) {
         ctx->cached = 1;
@@ -214,23 +209,8 @@ ngx_lua_init_request(ngx_http_request_t *r)
     file->fd = ngx_open_file(ctx->path.data, mode, NGX_FILE_OPEN,
                              NGX_FILE_DEFAULT_ACCESS);
     if (file->fd == NGX_INVALID_FILE) {
-        err = ngx_errno;
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, err,
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
                       ngx_open_file_n " \"%V\" failed", &ctx->path);
-
-#if 0
-        switch (err) {
-        case NGX_ENOENT:
-        case NGX_ENOTDIR:
-        case NGX_ENAMETOOLONG:
-            return NGX_HTTP_NOT_FOUND;
-        case NGX_EACCES:
-            return NGX_HTTP_FORBIDDEN;
-        default:
-            return NGX_HTTP_INTERNAL_SERVER_ERROR;
-        }
-#endif
-
         ngx_lua_finalize(r, NGX_ERROR);
         return;
     }
@@ -239,7 +219,7 @@ ngx_lua_init_request(ngx_http_request_t *r)
 
     if (n == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
-                      "ngx_file_aio_read() failed");
+                      "ngx_file_aio_read() \"%V\" failed", &ctx->path);
         ngx_lua_finalize(r, NGX_ERROR);
         return;
     }
@@ -250,9 +230,10 @@ ngx_lua_init_request(ngx_http_request_t *r)
         return;
     }
 
-    ctx->lsp->last += n;
-
     ngx_close_file(file->fd);
+    file->fd = NGX_INVALID_FILE;
+
+    ctx->lsp->last += n;
 
     ngx_lua_handle_request(r, ctx);
 }
@@ -263,7 +244,6 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 {
     ngx_int_t             rc;
     ngx_str_t             str;
-    ngx_http_cleanup_t   *cln;
     ngx_lua_main_conf_t  *lmcf;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -271,7 +251,8 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
     if (!ctx->cached) {
         if (ngx_lua_parse(r, ctx) == NGX_ERROR) {
-            /* TODO: parsing error */
+            ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                          "ngx_lua_parse() failed (parsing error)");
             ngx_lua_finalize(r, NGX_ERROR);
             return;
         }
@@ -294,9 +275,6 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     }
 
     if (!ctx->cached) {
-
-        /* saving lua byte-code to cache */
-
         ctx->buf->pos = ctx->buf->start;
         ctx->buf->last = ctx->buf->start;
 
@@ -343,16 +321,6 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         ngx_lua_finalize(r, rc);
         return;
     }
-
-    cln = ngx_http_cleanup_add(r, 0);
-    if (cln == NULL) {
-        ngx_lua_thread_close(r, ctx);
-        ngx_lua_finalize(r, rc);
-        return;
-    }
-
-    cln->handler = ngx_lua_cleanup;
-    cln->data = r;
 }
 
 
@@ -369,13 +337,16 @@ ngx_lua_aio_handler(ngx_event_t *ev)
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "lua aio handler");
 
+    /* TODO: error handling */
+
     ev->complete = 0;
 
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
-    ctx->lsp->last += ev->available;
-
     ngx_close_file(ctx->file.fd);
+    ctx->file.fd = NGX_INVALID_FILE;
+
+    ctx->lsp->last += ev->available;
 
     ngx_lua_handle_request(r, ctx);
 }
@@ -414,17 +385,22 @@ ngx_lua_writer(lua_State *l, const void *buf, size_t size, void *data)
 {
     ngx_http_request_t *r = data;
 
+    ngx_buf_t      *b;
     ngx_lua_ctx_t  *ctx;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua writer");
 
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
-    if (ctx->buf->last >= ctx->buf->end) {
+    b = ctx->buf;
+
+    if ((size_t)(b->end - b->last) < size) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+                      "not enough space in buffer");
         return -1;
     }
 
-    ctx->buf->last = ngx_cpymem(ctx->buf->last, buf, size);
+    b->last = ngx_cpymem(b->last, buf, size);
 
     return 0;
 }
@@ -441,7 +417,9 @@ ngx_lua_cleanup(void *data)
 
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
-    /* TODO: ngx_close_file(ctx->file.fd); */
+    if (ctx->file.fd != NGX_INVALID_FILE) {
+        ngx_close_file(ctx->file.fd);
+    }
 
     ngx_lua_thread_close(r, ctx);
 }
@@ -466,8 +444,8 @@ ngx_lua_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    lmcf->cache_expire = NGX_CONF_UNSET;
     lmcf->cache_size = NGX_CONF_UNSET_SIZE;
+    lmcf->cache_expire = NGX_CONF_UNSET;
 
     return lmcf;
 }
@@ -482,12 +460,12 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
 
     if (lmcf->cache_zone.data == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                          "the directive \"lua_cache_zone\" must be specified");
+                          "the directive \"lua_cache\" must be specified");
         return NGX_CONF_ERROR;
     }
 
-    ngx_conf_init_value(lmcf->cache_expire, 30 * 60);
     ngx_conf_init_size_value(lmcf->cache_size, 1024 * 1024 * 1);
+    ngx_conf_init_value(lmcf->cache_expire, 30 * 60);
 
     lmcf->zone = ngx_shared_memory_add(cf, &lmcf->cache_zone, lmcf->cache_size,
                                        &ngx_lua_module);
@@ -518,6 +496,62 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
     cln->data = lmcf->l;
 
     return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_lua_main_conf_t *lmcf = conf;
+
+    ngx_str_t   *value, str;
+    ngx_uint_t   i;
+
+    if (lmcf->cache_zone.data != NULL) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    for (i = 1; i < cf->args->nelts; i++) {
+
+        if (ngx_strncmp(value[i].data, "zone=", 5) == 0) {
+            lmcf->cache_zone.len = value[i].len - 5;
+            lmcf->cache_zone.data = value[i].data + 5;
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "size=", 5) == 0) {
+            str.len = value[i].len - 5;
+            str.data = value[i].data + 5;
+            lmcf->cache_size = ngx_parse_size(&str);
+            if (lmcf->cache_size == (size_t) NGX_ERROR) {
+                goto invalid;
+            }
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "expire=", 7) == 0) {
+            str.len = value[i].len - 7;
+            str.data = value[i].data + 7;
+            lmcf->cache_expire = ngx_parse_time(&str, 1);
+            if (lmcf->cache_expire == NGX_ERROR) {
+                goto invalid;
+            }
+            continue;
+        }
+
+        goto invalid;
+    }
+
+    return NGX_CONF_OK;
+
+invalid:
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "invalid parameter \"%V\" in lua_cache", &value[i]);
+
+    return NGX_CONF_ERROR;
 }
 
 
