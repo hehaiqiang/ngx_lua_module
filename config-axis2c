@@ -8,7 +8,7 @@ if [ "$NGX_PLATFORM" != win32 ]; then
 	AXIS2C_LIBS=" \
 		-L$AXIS2C/libs/unix \
 		-laxutil -laxis2_axiom \
-		-laxis2_parse -lguththila \
+		-laxis2_parser -lguththila \
 		-laxis2_minizip"
 else
 	AXIS2C_LIBS=" \

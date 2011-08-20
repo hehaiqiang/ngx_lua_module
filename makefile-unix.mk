@@ -10,8 +10,10 @@ include $(NGINX_DIR)/unix.args
 
 CONF_ARGS= \
 	$(CORE_CONF_ARGS) \
+	--with-file-aio \
 	--with-debug \
 	$(PCRE_CONF_ARGS) \
+	$(SHA1_CONF_ARGS) \
 	$(HTTP_CONF_ARGS) \
 	--without-http-cache \
 	--without-http_gzip_module \

@@ -8,12 +8,21 @@
 #include <ngx_core.h>
 #include <ngx_lua_module.h>
 
+
+#if (NGX_WIN32)
 #undef S_IWRITE
+#endif
+
 
 #include <axis2_util.h>
 #include <axutil_error_default.h>
 #include <axiom.h>
 #include <axiom_soap.h>
+
+
+#if !(NGX_WIN32)
+#define ngx_stdcall
+#endif
 
 
 typedef struct {
@@ -27,14 +36,16 @@ static int ngx_lua_axis2c_serialize(lua_State *l);
 
 static axutil_allocator_t *ngx_lua_axis2c_allocator_create(
     ngx_http_request_t *r);
-static void *__stdcall ngx_lua_axis2c_allocator_malloc(
+static void *ngx_stdcall ngx_lua_axis2c_allocator_malloc(
     axutil_allocator_t *allocator, size_t size);
-static void *__stdcall ngx_lua_axis2c_allocator_realloc(
+static void *ngx_stdcall ngx_lua_axis2c_allocator_realloc(
     axutil_allocator_t *allocator, void *ptr, size_t size);
-static void __stdcall ngx_lua_axis2c_allocator_free(
+static void ngx_stdcall ngx_lua_axis2c_allocator_free(
     axutil_allocator_t *allocator, void *ptr);
 
+#if 0
 static axutil_log_t *ngx_lua_axis2c_log_create(ngx_http_request_t *r);
+#endif
 
 
 static ngx_lua_const_t  ngx_lua_axis2c_consts[] = {
@@ -173,7 +184,7 @@ ngx_lua_axis2c_allocator_create(ngx_http_request_t *r)
 }
 
 
-static void *__stdcall
+static void *ngx_stdcall
 ngx_lua_axis2c_allocator_malloc(axutil_allocator_t *allocator, size_t size)
 {
     /* TODO */
@@ -182,7 +193,7 @@ ngx_lua_axis2c_allocator_malloc(axutil_allocator_t *allocator, size_t size)
 }
 
 
-static void *__stdcall
+static void *ngx_stdcall
 ngx_lua_axis2c_allocator_realloc(axutil_allocator_t *allocator, void *ptr,
     size_t size)
 {
@@ -192,7 +203,7 @@ ngx_lua_axis2c_allocator_realloc(axutil_allocator_t *allocator, void *ptr,
 }
 
 
-static void __stdcall
+static void ngx_stdcall
 ngx_lua_axis2c_allocator_free(axutil_allocator_t *allocator, void *ptr)
 {
 }

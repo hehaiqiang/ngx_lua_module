@@ -31,7 +31,9 @@ static int ngx_lua_file_gc(lua_State *l);
 static ngx_inline ngx_lua_file_ctx_t *ngx_lua_file(lua_State *l);
 
 static void ngx_lua_file_read_handler(ngx_event_t *ev);
+#if (NGX_WIN32)
 static void ngx_lua_file_write_handler(ngx_event_t *ev);
+#endif
 
 
 static ngx_lua_const_t  ngx_lua_file_consts[] = {
@@ -303,6 +305,8 @@ ngx_lua_file_read(lua_State *l)
 static int
 ngx_lua_file_write(lua_State *l)
 {
+#if (NGX_WIN32)
+
     ssize_t              n;
     ngx_str_t            str;
     ngx_buf_t           *b;
@@ -369,6 +373,12 @@ ngx_lua_file_write(lua_State *l)
     /* TODO */
 
     return 0;
+
+#else
+
+    return luaL_error(l, "not implement on this platform");
+
+#endif
 }
 
 
@@ -460,6 +470,8 @@ ngx_lua_file_read_handler(ngx_event_t *ev)
 }
 
 
+#if (NGX_WIN32)
+
 static void
 ngx_lua_file_write_handler(ngx_event_t *ev)
 {
@@ -488,3 +500,5 @@ ngx_lua_file_write_handler(ngx_event_t *ev)
 
     ngx_lua_finalize(ctx->r, rc);
 }
+
+#endif
