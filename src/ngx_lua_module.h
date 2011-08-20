@@ -95,6 +95,7 @@ ngx_int_t ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 int ngx_lua_http(lua_State *l);
 
 void ngx_lua_api_init(lua_State *l);
+void ngx_lua_axis2c_api_init(lua_State *l);
 void ngx_lua_dbd_api_init(lua_State *l);
 void ngx_lua_file_api_init(lua_State *l);
 void ngx_lua_logger_api_init(lua_State *l);

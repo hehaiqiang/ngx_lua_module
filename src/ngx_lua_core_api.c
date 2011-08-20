@@ -65,7 +65,8 @@ ngx_lua_api_init(lua_State *l)
     n = sizeof(ngx_lua_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_methods) / sizeof(luaL_Reg) - 1;
 
-    lua_createtable(l, 6, n);
+    /* STUB */
+    lua_createtable(l, 9, n);
 
     for (n = 0; ngx_lua_consts[n].name != NULL; n++) {
         lua_pushinteger(l, ngx_lua_consts[n].value);
@@ -77,6 +78,7 @@ ngx_lua_api_init(lua_State *l)
         lua_setfield(l, -2, ngx_lua_methods[n].name);
     }
 
+    ngx_lua_axis2c_api_init(l);
     ngx_lua_dbd_api_init(l);
     ngx_lua_file_api_init(l);
     ngx_lua_logger_api_init(l);

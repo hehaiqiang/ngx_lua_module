@@ -6,6 +6,7 @@ ngx_addon_name=ngx_lua_module
 
 . $ngx_addon_dir/config-lua
 #. $ngx_addon_dir/config-luajit
+. $ngx_addon_dir/config-axis2c
 
 HTTP_INCS="$HTTP_INCS \
 	$ngx_addon_dir/src"
@@ -21,6 +22,7 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/ngx_lua_cache.c \
 	$ngx_addon_dir/src/ngx_lua_module.c \
 	$ngx_addon_dir/src/ngx_lua_parse.c \
+	$ngx_addon_dir/src/ngx_lua_axis2c_api.c \
 	$ngx_addon_dir/src/ngx_lua_core_api.c \
 	$ngx_addon_dir/src/ngx_lua_database_api.c \
 	$ngx_addon_dir/src/ngx_lua_file_api.c \
