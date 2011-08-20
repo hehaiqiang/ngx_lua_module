@@ -107,6 +107,8 @@ ngx_lua_http(lua_State *l)
         return luaL_error(l, "ngx_array_init() failed");
     }
 
+    /* TODO: connect_timeout, send_timeout and read_timeout */
+
     ctx->pool = pool;
     ctx->connect_timeout = 60000;
     ctx->send_timeout = 60000;

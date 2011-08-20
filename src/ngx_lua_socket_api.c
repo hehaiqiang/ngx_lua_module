@@ -88,7 +88,7 @@ ngx_lua_socket_open(lua_State *l)
     ngx_memzero(&u, sizeof(ngx_url_t));
 
     u.url.data = (u_char *) luaL_checklstring(l, 1, &u.url.len);
-    u.default_port = (in_port_t) luaL_checkint(l, 2);
+    u.default_port = 80;
     u.one_addr = 1;
 
     ctx = lua_newuserdata(l, sizeof(ngx_lua_socket_ctx_t *));
@@ -109,6 +109,8 @@ ngx_lua_socket_open(lua_State *l)
         errstr = "ngx_pcalloc() failed";
         goto failed;
     }
+
+    /* TODO: connect_timeout, send_timeout and read_timeout */
 
     (*ctx)->pool = pool;
     (*ctx)->connect_timeout = 60000;

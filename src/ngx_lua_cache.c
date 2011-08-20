@@ -169,6 +169,8 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 void
 ngx_lua_cache_expire(ngx_lua_main_conf_t *lmcf)
 {
+    /* TODO */
+
 #if 0
     time_t                 now;
     ngx_uint_t             i;
