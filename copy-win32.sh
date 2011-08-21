@@ -15,3 +15,5 @@ cp -fr conf/nginx-win32.conf ./build/conf/nginx.conf
 cp -fr conf/mime.types ./build/conf/mime.types
 
 cp -fr html ./build
+
+cp -fr ../../../lib/axis2c/libs/win32/*.dll ./build

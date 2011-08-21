@@ -13,7 +13,9 @@ if [ "$NGX_PLATFORM" != win32 ]; then
 else
 	AXIS2C_LIBS=" \
 		$AXIS2C/libs/win32/axiom.lib \
-		$AXIS2C/libs/win32/axutil.lib"
+		$AXIS2C/libs/win32/axis2_parser.lib \
+		$AXIS2C/libs/win32/axutil.lib \
+		$AXIS2C/libs/win32/guththila.lib"
 fi
 
 CORE_INCS="$CORE_INCS $AXIS2C/incs"
