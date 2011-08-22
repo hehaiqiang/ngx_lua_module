@@ -320,7 +320,7 @@ ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc)
         return;
     }
 
-    if (ctx->out != NULL) {
+    if (ctx->out != NULL && size > 0) {
         ctx->last->buf->last_buf = 1;
 
         rc = ngx_http_output_filter(r, ctx->out);
