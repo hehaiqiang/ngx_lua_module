@@ -30,7 +30,6 @@ print(body or "")
 
 local res = nginx.http({
   method = "POST",
-  version = "1.1",
   url = "www.webxml.com.cn/WebServices/WeatherWebService.asmx",
   headers = {
     Content_Type = "text/xml; charset=utf-8",

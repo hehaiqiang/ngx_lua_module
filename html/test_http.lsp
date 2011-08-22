@@ -4,11 +4,7 @@ local nginx = nginx
 local req = nginx.request
 
 local res = nginx.http({
-  method = "GET",
-  version = "1.1",
-  url = "www.nginx.org/index.html",
-  headers = {},
-  body = ""
+  url = "www.nginx.org/index.html"
 })
 if res.status == nginx.ERROR then
   print("error")

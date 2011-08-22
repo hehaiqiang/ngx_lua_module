@@ -4,15 +4,13 @@ local nginx = nginx
 local req = nginx.request
 
 local res = nginx.http({
-  method = "GET",
   version = "1.0",
   url = "192.168.1.200:80/mjpg/1/video.mjpg",
   headers = {
     Authorization = "Basic " .. nginx.encode_base64("root:pass"),
     Connection = "close",
     Cache_Control = "no-cache"
-  },
-  body = ""
+  }
 })
 if res.status == nginx.ERROR then
   print("error")

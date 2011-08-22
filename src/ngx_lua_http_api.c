@@ -127,7 +127,7 @@ ngx_lua_http(lua_State *l)
     /* TODO: lua_pop() */
 
     lua_getfield(l, -1, "method");
-    str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
+    str.data = (u_char *) luaL_optlstring(l, -1, "GET", &str.len);
 
     ctx->method.len = str.len;
     ctx->method.data = ngx_pstrdup(pool, &str);
@@ -136,7 +136,7 @@ ngx_lua_http(lua_State *l)
     }
 
     lua_getfield(l, -2, "version");
-    str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
+    str.data = (u_char *) luaL_optlstring(l, -1, "1.1", &str.len);
 
     ctx->version.len = str.len;
     ctx->version.data = ngx_pstrdup(pool, &str);
@@ -154,41 +154,45 @@ ngx_lua_http(lua_State *l)
     }
 
     lua_getfield(l, -4, "headers");
-    if (!lua_istable(l, -1)) {
-        return luaL_error(l, "invalid argument, must be a table");
-    }
-
-    lua_pushnil(l);
-    while (lua_next(l, -2)) {
-        header = ngx_array_push(&ctx->headers);
-        if (header == NULL) {
-            return luaL_error(l, "ngx_array_push() failed");
+    if (!lua_isnil(l, -1)) {
+        if (!lua_istable(l, -1)) {
+            return luaL_error(l,
+                              "invalid value of the argument \"headers\""
+                              ", must be a table");
         }
 
-        str.data = (u_char *) luaL_checklstring(l, -2, &str.len);
-
-        header->key.len = str.len;
-        header->key.data = ngx_pstrdup(pool, &str);
-
-        for (p = header->key.data, last = p + header->key.len;
-             p < last - 1;
-             p++)
-        {
-            if (*p == '_') {
-                *p = '-';
+        lua_pushnil(l);
+        while (lua_next(l, -2)) {
+            header = ngx_array_push(&ctx->headers);
+            if (header == NULL) {
+                return luaL_error(l, "ngx_array_push() failed");
             }
+
+            str.data = (u_char *) luaL_checklstring(l, -2, &str.len);
+
+            header->key.len = str.len;
+            header->key.data = ngx_pstrdup(pool, &str);
+
+            for (p = header->key.data, last = p + header->key.len;
+                 p < last - 1;
+                 p++)
+            {
+                if (*p == '_') {
+                    *p = '-';
+                }
+            }
+
+            str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
+
+            header->value.len = str.len;
+            header->value.data = ngx_pstrdup(pool, &str);
+
+            lua_pop(l, 1);
         }
-
-        str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
-
-        header->value.len = str.len;
-        header->value.data = ngx_pstrdup(pool, &str);
-
-        lua_pop(l, 1);
     }
 
     lua_getfield(l, -5, "body");
-    str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
+    str.data = (u_char *) luaL_optlstring(l, -1, "", &str.len);
 
     ctx->body.len = str.len;
     ctx->body.data = ngx_pstrdup(pool, &str);

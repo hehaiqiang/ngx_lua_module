@@ -5,7 +5,6 @@ local req = nginx.request
 
 local res = nginx.http({
   method = "POST",
-  version = "1.1",
   url = "192.168.1.200:80/onvif/services",
   headers = {
     Content_Type = "text/xml; charset=utf-8",
