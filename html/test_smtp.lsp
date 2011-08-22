@@ -4,7 +4,7 @@ local resp = nginx.response
 local socket = nginx.socket
 resp.content_type = "text/html"
 %>
-<% local s = socket.open("smtp.126.com", 25) %>
+<% local s = socket.open("smtp.126.com:25") %>
 <%
 
 local n,res = s:recv()
