@@ -351,6 +351,8 @@ ngx_lua_socket_connect_handler(ngx_event_t *wev)
     c = wev->data;
     ctx = c->data;
 
+    /* TODO: ctx->r */
+
     lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
 
     if (wev->timedout) {
@@ -434,6 +436,8 @@ ngx_lua_socket_write_handler(ngx_event_t *wev)
 
 done:
 
+    /* TODO: ctx->r */
+
     lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
 
     lua_pushnumber(lua_ctx->l, n);
@@ -503,6 +507,8 @@ ngx_lua_socket_read_handler(ngx_event_t *rev)
     }
 
 done:
+
+    /* TODO: ctx->r */
 
     lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
 
