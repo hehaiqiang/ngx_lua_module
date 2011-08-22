@@ -60,15 +60,13 @@ typedef struct {
     ngx_str_t             path;
     size_t                size;
     time_t                mtime;
-
     ngx_buf_t            *lsp;
     ngx_buf_t            *buf;
 
-    ngx_chain_t          *out;
-    ngx_chain_t          *last;
-
     lua_State            *l;
     int                   ref;
+    ngx_chain_t          *out;
+    ngx_chain_t          *last;
 
     ngx_str_t             request_body;
 
@@ -93,6 +91,7 @@ ngx_int_t ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 ngx_int_t ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 
 int ngx_lua_http(lua_State *l);
+int ngx_lua_smtp(lua_State *l);
 
 void ngx_lua_api_init(lua_State *l);
 void ngx_lua_axis2c_api_init(lua_State *l);

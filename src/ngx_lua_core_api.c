@@ -48,6 +48,7 @@ static luaL_Reg  ngx_lua_methods[] = {
     { "md5", ngx_lua_md5 },
     { "sha1", ngx_lua_sha1 },
     { "http", ngx_lua_http },
+    { "smtp", ngx_lua_smtp },
     { NULL, NULL }
 };
 
