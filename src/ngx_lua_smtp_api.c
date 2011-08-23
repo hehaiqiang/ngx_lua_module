@@ -30,6 +30,7 @@ typedef struct {
     ngx_uint_t                not_event;
     ngx_http_request_t       *r;
     ngx_uint_t                state;
+    ngx_uint_t                n;
 } ngx_lua_smtp_ctx_t;
 
 
@@ -141,6 +142,9 @@ ngx_lua_smtp(lua_State *l)
     }
 
     n = lua_objlen(l, -1);
+    if (n == 0) {
+        return luaL_error(l, "the argument \"to\" is a empty table");
+    }
 
     for (i = 1; i <= n; i++) {
         to = ngx_array_push(&ctx->to);
@@ -428,9 +432,10 @@ ngx_lua_smtp_dummy_handler(ngx_event_t *ev)
 static ngx_int_t
 ngx_lua_smtp_handle_response(ngx_http_request_t *r, ngx_lua_smtp_ctx_t *ctx)
 {
-    u_char     *p, *last;
-    ngx_str_t   dst, src;
-    ngx_buf_t  *b;
+    u_char      *p, *last;
+    ngx_str_t    dst, src, *to;
+    ngx_buf_t   *b;
+    ngx_uint_t   i;
     enum {
         sw_start = 0,
         sw_helo,
@@ -552,10 +557,9 @@ ngx_lua_smtp_handle_response(ngx_http_request_t *r, ngx_lua_smtp_ctx_t *ctx)
             return NGX_ERROR;
         }
 
-        /* TODO */
-
-        b->last = ngx_slprintf(b->pos, b->end,
-                               "RCPT TO:<184815157@qq.com>" CRLF);
+        to = ctx->to.elts;
+        b->last = ngx_slprintf(b->pos, b->end, "RCPT TO:<%V>" CRLF,
+                               &to[ctx->n++]);
 
         state = sw_to;
         break;
@@ -563,6 +567,13 @@ ngx_lua_smtp_handle_response(ngx_http_request_t *r, ngx_lua_smtp_ctx_t *ctx)
     case sw_to:
         if (p[0] != '2' || p[1] != '5' || p[2] != '0') {
             return NGX_ERROR;
+        }
+
+        if (ctx->n < ctx->to.nelts) {
+            to = ctx->to.elts;
+            b->last = ngx_slprintf(b->pos, b->end, "RCPT TO:<%V>" CRLF,
+                                   &to[ctx->n++]);
+            break;
         }
 
         b->last = ngx_cpymem(b->pos, "DATA" CRLF, sizeof("DATA" CRLF) - 1);
@@ -575,14 +586,16 @@ ngx_lua_smtp_handle_response(ngx_http_request_t *r, ngx_lua_smtp_ctx_t *ctx)
             return NGX_ERROR;
         }
 
-        /* TODO */
+        b->last = ngx_slprintf(b->pos, b->end, "Subject: %V" CRLF,
+                               &ctx->subject);
 
-        b->last = ngx_slprintf(b->pos, b->end,
-                               "Subject: %V" CRLF
-                               "To: 184815157@qq.com" CRLF
-                               CRLF
-                               "%V" CRLF "." CRLF,
-                               &ctx->subject, &ctx->content);
+        to = ctx->to.elts;
+        for (i = 0; i < ctx->to.nelts; i++) {
+            b->last = ngx_slprintf(b->last, b->end, "To: %V" CRLF, &to[i]);
+        }
+
+        b->last = ngx_slprintf(b->last, b->end, CRLF "%V" CRLF "." CRLF,
+                               &ctx->content);
 
         state = sw_quit;
         break;
@@ -601,8 +614,6 @@ ngx_lua_smtp_handle_response(ngx_http_request_t *r, ngx_lua_smtp_ctx_t *ctx)
         if (p[0] != '2' || p[1] != '2' || p[2] != '1') {
             return NGX_ERROR;
         }
-
-        /* TODO */
 
         ngx_lua_smtp_finalize(ctx, NGX_OK);
 

@@ -5,7 +5,7 @@ local nginx = nginx
 local rc,err = nginx.smtp({
   host = "smtp.126.com:25",
   user = "ngxteam@126.com",
-  password = "19820202",
+  password = "xxxxxxxxx",
   from = "ngxteam@126.com",
   to = {
     "ngwsx2008@126.com",
