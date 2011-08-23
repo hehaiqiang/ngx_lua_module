@@ -38,11 +38,13 @@ typedef struct {
 
 
 static int ngx_lua_axis2c_parse(lua_State *l);
-static int ngx_lua_axis2c_serialize(lua_State *l);
-
 static void ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, axiom_element_t *parent_elem);
-static void ngx_lua_axis2c_serialize_children(lua_State *l, axutil_env_t *env,
+
+static int ngx_lua_axis2c_serialize(lua_State *l);
+static axiom_node_t *ngx_lua_axis2c_serialize_table(lua_State *l,
+    axutil_env_t *env, axiom_node_t *parent);
+static void ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent);
 
 static axutil_allocator_t *ngx_lua_axis2c_allocator_create(
@@ -149,7 +151,7 @@ ngx_lua_axis2c_parse(lua_State *l)
         uri = axiom_namespace_get_uri(ns, env);
         if (uri != NULL) {
             lua_pushstring(l, uri);
-            lua_setfield(l, -2, "namespace");
+            lua_setfield(l, -2, "uri");
         }
 
         prefix = axiom_namespace_get_prefix(ns, env);
@@ -209,7 +211,7 @@ ngx_lua_axis2c_parse(lua_State *l)
             uri = axiom_namespace_get_uri(ns, env);
             if (uri != NULL) {
                 lua_pushstring(l, uri);
-                lua_setfield(l, -2, "namespace");
+                lua_setfield(l, -2, "uri");
             }
 
             prefix = axiom_namespace_get_prefix(ns, env);
@@ -241,16 +243,78 @@ ngx_lua_axis2c_parse(lua_State *l)
 }
 
 
+static void
+ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
+    axiom_node_t *parent, axiom_element_t *parent_elem)
+{
+    int                              n;
+    char                            *uri, *prefix, *text;
+    axiom_node_t                    *node;
+    axiom_element_t                 *elem;
+    axiom_namespace_t               *ns;
+    axiom_child_element_iterator_t  *it;
+
+    it = axiom_element_get_child_elements(parent_elem, env, parent);
+    if (it == NULL) {
+        return;
+    }
+
+    lua_newtable(l);
+    n = 1;
+
+    do {
+
+        lua_createtable(l, 2, 4);
+
+        node = axiom_child_element_iterator_next(it, env);
+        elem = axiom_node_get_data_element(node, env);
+
+        lua_pushstring(l, axiom_element_get_localname(elem, env));
+        lua_setfield(l, -2, "name");
+
+        ns = axiom_element_get_namespace(elem, env, node);
+        if (ns != NULL) {
+            uri = axiom_namespace_get_uri(ns, env);
+            if (uri != NULL) {
+                lua_pushstring(l, uri);
+                lua_setfield(l, -2, "uri");
+            }
+
+            prefix = axiom_namespace_get_prefix(ns, env);
+            if (prefix != NULL) {
+                lua_pushstring(l, prefix);
+                lua_setfield(l, -2, "prefix");
+            }
+        }
+
+        /* TODO: attributes */
+
+        text = axiom_element_get_text(elem, env, node);
+        if (text != NULL) {
+            lua_pushstring(l, text);
+            lua_setfield(l, -2, "text");
+
+        } else {
+            ngx_lua_axis2c_parse_children(l, env, node, elem);
+        }
+
+        lua_rawseti(l, -2, n++);
+
+    } while (axiom_child_element_iterator_has_next(it, env) == AXIS2_TRUE);
+
+    lua_setfield(l, -2, "children");
+}
+
+
 static int
 ngx_lua_axis2c_serialize(lua_State *l)
 {
-    char                   *uri, *prefix, *name;
+    char                   *uri, *prefix;
     axiom_node_t           *node;
     axutil_env_t           *env;
     axutil_log_t           *log;
     axutil_error_t         *error;
     axiom_output_t         *output;
-    axiom_element_t        *elem;
     axiom_namespace_t      *ns;
     axiom_soap_body_t      *body;
     axutil_allocator_t     *a;
@@ -271,10 +335,11 @@ ngx_lua_axis2c_serialize(lua_State *l)
     env = axutil_env_create_with_error_log(a, error, log);
 
     lua_getfield(l, -1, "namespace");
-    uri = (char *) luaL_checkstring(l, -1);
+    uri = (char *) luaL_optstring(l, -1,
+                                  "http://www.w3.org/2003/05/soap-envelope");
 
     lua_getfield(l, -2, "prefix");
-    prefix = (char *) luaL_checkstring(l, -1);
+    prefix = (char *) luaL_optstring(l, -1, "soap");
 
     ns = axiom_namespace_create(env, uri, prefix);
     envelope = axiom_soap_envelope_create(env, ns);
@@ -283,6 +348,8 @@ ngx_lua_axis2c_serialize(lua_State *l)
     if (lua_istable(l, -1)) {
         header = axiom_soap_header_create_with_parent(env, envelope);
 
+        /* TODO: axiom_soap_header_get_base_node */
+
         /* TODO */
     }
 
@@ -290,30 +357,9 @@ ngx_lua_axis2c_serialize(lua_State *l)
     if (lua_istable(l, -1)) {
         body = axiom_soap_body_create_with_parent(env, envelope);
 
-        lua_getfield(l, -1, "namespace");
-        uri = lua_isnil(l, -1) ? NULL : (char *) lua_tostring(l, -1);
+        /* TODO: axiom_soap_body_get_base_node */
 
-        lua_getfield(l, -2, "prefix");
-        prefix = lua_isnil(l, -1) ? NULL : (char *) lua_tostring(l, -1);
-
-        if (uri != NULL || prefix != NULL) {
-            ns = axiom_namespace_create(env, uri, prefix);
-
-        } else {
-            ns = NULL;
-        }
-
-        lua_getfield(l, -3, "name");
-        name = (char *) luaL_checkstring(l, -1);
-
-        elem = axiom_element_create(env, NULL, name, ns, &node);
-
-        lua_getfield(l, -4, "children");
-        if (lua_istable(l, -1)) {
-            ngx_lua_axis2c_serialize_children(l, env, node);
-        }
-
-        lua_pop(l, 4);
+        node = ngx_lua_axis2c_serialize_table(l, env, NULL);
 
         axiom_soap_body_add_child(body, env, node);
     }
@@ -339,79 +385,60 @@ ngx_lua_axis2c_serialize(lua_State *l)
 }
 
 
-static void
-ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
-    axiom_node_t *parent, axiom_element_t *parent_elem)
+static axiom_node_t *
+ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
+    axiom_node_t *parent)
 {
-    int                              n;
-    char                            *uri, *prefix, *name, *text;
-    axiom_node_t                    *node;
-    axiom_element_t                 *elem;
-    axiom_namespace_t               *ns;
-    axiom_child_element_iterator_t  *it;
+    char               *uri, *prefix, *name, *text;
+    axiom_node_t       *node;
+    axiom_element_t    *elem;
+    axiom_namespace_t  *ns;
 
-    it = axiom_element_get_child_elements(parent_elem, env, parent);
-    if (it == NULL) {
-        return;
+    lua_getfield(l, -1, "uri");
+    uri = (char *) luaL_optstring(l, -1, NULL);
+
+    lua_getfield(l, -2, "prefix");
+    prefix = (char *) luaL_optstring(l, -1, NULL);
+
+    if (uri != NULL || prefix != NULL) {
+        ns = axiom_namespace_create(env, uri, prefix);
+
+    } else {
+        ns = NULL;
     }
 
-    lua_newtable(l);
+    lua_getfield(l, -3, "name");
+    name = (char *) luaL_checkstring(l, -1);
 
-    n = 0;
+    elem = axiom_element_create(env, parent, name, ns, &node);
 
-    do {
+    /* TODO: attributes */
 
-        lua_createtable(l, 2, 4);
+    lua_getfield(l, -4, "text");
+    text = (char *) luaL_optstring(l, -1, NULL);
 
-        node = axiom_child_element_iterator_next(it, env);
-        elem = axiom_node_get_data_element(node, env);
+    if (text != NULL) {
+        axiom_element_set_text(elem, env, text, node);
+        lua_pop(l, 4);
+        return node;
+    }
 
-        name = axiom_element_get_localname(elem, env);
+    lua_getfield(l, -5, "children");
+    if (lua_istable(l, -1)) {
+        ngx_lua_axis2c_serialize_tables(l, env, node);
+    }
 
-        lua_pushstring(l, name);
-        lua_setfield(l, -2, "name");
+    lua_pop(l, 5);
 
-        ns = axiom_element_get_namespace(elem, env, node);
-        if (ns != NULL) {
-            uri = axiom_namespace_get_uri(ns, env);
-            if (uri != NULL) {
-                lua_pushstring(l, uri);
-                lua_setfield(l, -2, "namespace");
-            }
-
-            prefix = axiom_namespace_get_prefix(ns, env);
-            if (prefix != NULL) {
-                lua_pushstring(l, prefix);
-                lua_setfield(l, -2, "prefix");
-            }
-        }
-
-        text = axiom_element_get_text(elem, env, node);
-        if (text != NULL) {
-            lua_pushstring(l, text);
-            lua_setfield(l, -2, "text");
-
-        } else {
-            ngx_lua_axis2c_parse_children(l, env, node, elem);
-        }
-
-        lua_rawseti(l, -2, ++n);
-
-    } while (axiom_child_element_iterator_has_next(it, env) == AXIS2_TRUE);
-
-    lua_setfield(l, -2, "children");
+    return node;
 }
 
 
 static void
-ngx_lua_axis2c_serialize_children(lua_State *l, axutil_env_t *env,
+ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent)
 {
-    char               *uri, *prefix, *name;
-    size_t              n, i;
-    axiom_node_t       *node;
-    axiom_element_t    *elem;
-    axiom_namespace_t  *ns;
+    size_t  n, i;
 
     n = lua_objlen(l, -1);
 
@@ -421,30 +448,11 @@ ngx_lua_axis2c_serialize_children(lua_State *l, axutil_env_t *env,
             luaL_error(l, "must be a table");
         }
 
-        lua_getfield(l, -1, "namespace");
-        uri = lua_isnil(l, -1) ? NULL : (char *) lua_tostring(l, -1);
+        ngx_lua_axis2c_serialize_table(l, env, parent);
+    }
 
-        lua_getfield(l, -2, "prefix");
-        prefix = lua_isnil(l, -1) ? NULL : (char *) lua_tostring(l, -1);
-
-        if (uri != NULL || prefix != NULL) {
-            ns = axiom_namespace_create(env, uri, prefix);
-
-        } else {
-            ns = NULL;
-        }
-
-        lua_getfield(l, -3, "name");
-        name = (char *) luaL_checkstring(l, -1);
-
-        elem = axiom_element_create(env, parent, name, ns, &node);
-
-        lua_getfield(l, -4, "children");
-        if (lua_istable(l, -1)) {
-            ngx_lua_axis2c_serialize_children(l, env, node);
-        }
-
-        lua_pop(l, 5);
+    if (n > 0) {
+        lua_pop(l, (int) n);
     }
 }
 
@@ -494,8 +502,7 @@ ngx_lua_axis2c_allocator_realloc(axutil_allocator_t *allocator, void *ptr,
     size_t   osize;
     u_char  *p;
 
-    p = ptr;
-    p -= sizeof(size_t);
+    p = (u_char *) ptr - sizeof(size_t);
     osize = *((size_t *) p);
 
     if (osize >= size) {
@@ -515,18 +522,14 @@ ngx_lua_axis2c_allocator_free(axutil_allocator_t *allocator, void *ptr)
 {
     ngx_lua_axis2c_allocator_t *a = (ngx_lua_axis2c_allocator_t *) allocator;
 
-    size_t       size;
-    u_char      *p;
-    ngx_pool_t  *pool;
+    size_t   size;
+    u_char  *p;
 
-    p = ptr;
-    p -= sizeof(size_t);
+    p = (u_char *) ptr - sizeof(size_t);
     size = *((size_t *) p) + sizeof(size_t);
 
-    pool = a->r->pool;
-
-    if (size > pool->max) {
-        ngx_pfree(pool, p);
+    if (size > a->r->pool->max) {
+        ngx_pfree(a->r->pool, p);
     }
 }
 

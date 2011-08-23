@@ -8,18 +8,13 @@ local resp = nginx.response
 --resp.content_type = "text/plain"
 
 local body = axis2c.serialize({
-  namespace = "http://www.w3.org/2003/05/soap-envelope",
-  prefix = "soap",
-  header = {},
   body = {
     name = "getSupportCity",
-    namespace = "http://WebXml.com.cn/",
-    prefix = nil,
+    uri = "http://WebXml.com.cn/",
     attributes = {
       attr1 = nil,
       attr2 = nil
     },
-    text = nil;
     children = {
       { name = "byProvinceName" }
     }
@@ -27,6 +22,7 @@ local body = axis2c.serialize({
 })
 
 print(body or "")
+--do return end
 
 local res = nginx.http({
   method = "POST",
@@ -69,13 +65,13 @@ local res_table = axis2c.parse(res.body)
 <hr>
 <%=#res_table%>
 <br>
-<%=res_table.namespace%>
+<%=res_table.uri%>
 <br>
 <%=res_table.prefix%>
 <hr>
 <%=res_table.body.name%>
 <br>
-<%=res_table.body.namespace%>
+<%=res_table.body.uri%>
 <br>
 <%=res_table.body.prefix%>
 <br>
