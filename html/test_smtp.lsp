@@ -3,7 +3,7 @@ local print = print
 local nginx = nginx
 
 local rc,err = nginx.smtp({
-  host = "smtp.126.com:25",
+  host = "smtp.126.com",
   user = "ngxteam@126.com",
   password = "xxxxxxxxx",
   from = "ngxteam@126.com",
@@ -18,6 +18,9 @@ local rc,err = nginx.smtp({
 })
 
 print(rc or "rc is null")
-print("<hr>")
-print(err or "err is null")
+
+if rc ~= nginx.OK then
+  print("<hr>")
+  print(err or "err is null")
+end
 %>
