@@ -41,6 +41,9 @@ struct ngx_lua_socket_cleanup_ctx_s {
 };
 
 
+extern ngx_int_t ngx_udp_connect(ngx_udp_connection_t *uc);
+
+
 static int ngx_lua_socket_open(lua_State *l);
 static int ngx_lua_socket_close(lua_State *l);
 static int ngx_lua_socket_send(lua_State *l);
@@ -55,6 +58,14 @@ static void ngx_lua_socket_read_handler(ngx_event_t *rev);
 static void ngx_lua_socket_dummy_handler(ngx_event_t *ev);
 
 static void ngx_lua_socket_cleanup(void *data);
+
+static int ngx_lua_socket_udp_open(lua_State *l, ngx_http_request_t *r,
+    ngx_lua_socket_ctx_t *ctx, ngx_url_t *u);
+static int ngx_lua_socket_udp_send(lua_State *l, ngx_http_request_t *r,
+    ngx_lua_socket_ctx_t *ctx, ngx_str_t *str);
+static int ngx_lua_socket_udp_recv(lua_State *l, ngx_http_request_t *r,
+    ngx_lua_socket_ctx_t *ctx);
+static void ngx_lua_socket_udp_read_handler(ngx_event_t *rev);
 
 
 static luaL_Reg  ngx_lua_socket_methods[] = {
@@ -82,9 +93,15 @@ ngx_lua_socket_api_init(lua_State *l)
 
     lua_pop(l, 1);
 
-    lua_createtable(l, 0, 1);
+    lua_createtable(l, 0, 3);
+
+    lua_pushinteger(l, NGX_LUA_SOCKET_TCP);
+    lua_setfield(l, -2, "TCP");
+    lua_pushinteger(l, NGX_LUA_SOCKET_UDP);
+    lua_setfield(l, -2, "UDP");
     lua_pushcfunction(l, ngx_lua_socket_open);
     lua_setfield(l, -2, "open");
+
     lua_setfield(l, -2, "socket");
 }
 
@@ -173,6 +190,10 @@ ngx_lua_socket_open(lua_State *l)
         goto failed;
     }
 
+    if (type == NGX_LUA_SOCKET_UDP) {
+        return ngx_lua_socket_udp_open(l, r, *ctx, &u);
+    }
+
     peer = &(*ctx)->peer;
 
     peer->sockaddr = u.addrs->sockaddr;
@@ -230,10 +251,20 @@ ngx_lua_socket_close(lua_State *l)
 
     ctx = ngx_lua_socket(l);
 
-    if (ctx->peer.connection) {
-        ngx_close_connection(ctx->peer.connection);
+    if (ctx->type == NGX_LUA_SOCKET_TCP) {
+        if (ctx->peer.connection) {
+            ngx_close_connection(ctx->peer.connection);
 
-        ctx->peer.connection = NULL;
+            ctx->peer.connection = NULL;
+        }
+
+    } else {
+
+        if (ctx->udp_connection.connection) {
+            ngx_close_connection(ctx->udp_connection.connection);
+
+            ctx->udp_connection.connection = NULL;
+        }
     }
 
     return 0;
@@ -254,6 +285,10 @@ ngx_lua_socket_send(lua_State *l)
     str.data = (u_char *) luaL_checklstring(l, 2, &str.len);
 
     ctx = ngx_lua_socket(l);
+
+    if (ctx->type == NGX_LUA_SOCKET_UDP) {
+        return ngx_lua_socket_udp_send(l, r, ctx, &str);
+    }
 
     if (ctx->peer.connection == NULL) {
         lua_pushnumber(l, NGX_ERROR);
@@ -315,12 +350,6 @@ ngx_lua_socket_recv(lua_State *l)
 
     ctx = ngx_lua_socket(l);
 
-    if (ctx->peer.connection == NULL) {
-        lua_pushnumber(l, NGX_ERROR);
-        lua_pushstring(l, "connection is null");
-        return 2;
-    }
-
     b = ctx->response;
 
     if (b == NULL || (size_t) (b->end - b->start) < size) {
@@ -341,6 +370,16 @@ ngx_lua_socket_recv(lua_State *l)
     }
 
     b->last = b->pos;
+
+    if (ctx->type == NGX_LUA_SOCKET_UDP) {
+        return ngx_lua_socket_udp_recv(l, r, ctx);
+    }
+
+    if (ctx->peer.connection == NULL) {
+        lua_pushnumber(l, NGX_ERROR);
+        lua_pushstring(l, "connection is null");
+        return 2;
+    }
 
     ctx->peer.connection->read->handler = ngx_lua_socket_read_handler;
     ctx->peer.connection->write->handler = ngx_lua_socket_dummy_handler;
@@ -371,9 +410,7 @@ ngx_lua_socket_gc(lua_State *l)
         ctx->cln_ctx->ctx = NULL;
     }
 
-    if (ctx->peer.connection) {
-        ngx_close_connection(ctx->peer.connection);
-    }
+    ngx_lua_socket_close(l);
 
     ngx_destroy_pool(ctx->pool);
 
@@ -524,7 +561,7 @@ done:
 static void
 ngx_lua_socket_read_handler(ngx_event_t *rev)
 {
-    ssize_t                n, size;
+    ssize_t                n;
     ngx_int_t              rc;
     ngx_buf_t             *b;
     ngx_lua_ctx_t         *lua_ctx;
@@ -550,9 +587,7 @@ ngx_lua_socket_read_handler(ngx_event_t *rev)
 
     while (1) {
 
-        size = b->end - b->last;
-
-        n = ngx_recv(c, b->last, size);
+        n = ngx_recv(c, b->last, b->end - b->last);
 
         if (n > 0) {
             b->last += n;
@@ -619,4 +654,188 @@ ngx_lua_socket_cleanup(void *data)
         cln_ctx->ctx->r = NULL;
         cln_ctx->ctx->cln_ctx = NULL;
     }
+}
+
+
+static int
+ngx_lua_socket_udp_open(lua_State *l, ngx_http_request_t *r,
+    ngx_lua_socket_ctx_t *ctx, ngx_url_t *u)
+{
+    ngx_int_t              rc;
+    ngx_udp_connection_t  *uc;
+
+    uc = &ctx->udp_connection;
+
+    uc->sockaddr = u->addrs->sockaddr;
+    uc->socklen = u->addrs->socklen;
+    uc->server = u->addrs->name;
+    uc->log = *ngx_cycle->log;
+
+    rc = ngx_udp_connect(uc);
+
+    if (rc == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_socket_errno,
+                      "ngx_udp_connect() failed");
+        lua_pop(l, 1);
+        lua_pushnil(l);
+        lua_pushstring(l, "ngx_udp_connect() failed");
+        return 2;
+    }
+
+    uc->connection->data = ctx;
+    uc->connection->pool = ctx->pool;
+
+    uc->connection->read->handler = ngx_lua_socket_dummy_handler;
+    uc->connection->write->handler = ngx_lua_socket_dummy_handler;
+
+    return 1;
+}
+
+
+static int
+ngx_lua_socket_udp_send(lua_State *l, ngx_http_request_t *r,
+    ngx_lua_socket_ctx_t *ctx, ngx_str_t *str)
+{
+    ssize_t                n;
+    ngx_udp_connection_t  *uc;
+
+    uc = &ctx->udp_connection;
+
+    if (uc->connection == NULL) {
+        lua_pushnumber(l, NGX_ERROR);
+        lua_pushstring(l, "connection is null");
+        return 2;
+    }
+
+    n = sendto(uc->connection->fd, (char *) str->data, str->len, 0,
+               uc->sockaddr, uc->socklen);
+
+    if (n == -1) {
+        ngx_connection_error(uc->connection, ngx_socket_errno,
+                             "sendto() failed");
+        lua_pushnumber(l, NGX_ERROR);
+        lua_pushstring(l, "sendto() failed");
+        return 2;
+    }
+
+    if ((size_t) n != str->len) {
+        ngx_log_error(NGX_LOG_CRIT, r->connection->log, 0,
+                      "sendto() incomplete n:%z size:%uz", n, str->len);
+        lua_pushnumber(l, NGX_ERROR);
+        lua_pushstring(l, "sendto() incomplete");
+        return 2;
+    }
+
+    lua_pushnumber(l, n);
+
+    return 1;
+}
+
+
+static int
+ngx_lua_socket_udp_recv(lua_State *l, ngx_http_request_t *r,
+    ngx_lua_socket_ctx_t *ctx)
+{
+    ngx_udp_connection_t  *uc;
+
+    uc = &ctx->udp_connection;
+
+    if (uc->connection == NULL) {
+        lua_pushnumber(l, NGX_ERROR);
+        lua_pushstring(l, "connection is null");
+        return 2;
+    }
+
+    uc->connection->read->handler = ngx_lua_socket_udp_read_handler;
+
+    ctx->rc = 0;
+    ctx->not_event = 1;
+
+    ngx_lua_socket_udp_read_handler(uc->connection->read);
+
+    ctx->not_event = 0;
+
+    if (ctx->rc != NGX_AGAIN) {
+        return ctx->rc;
+    }
+
+    return lua_yield(l, 0);
+}
+
+
+static void
+ngx_lua_socket_udp_read_handler(ngx_event_t *rev)
+{
+    ssize_t                n;
+    ngx_int_t              rc;
+    ngx_buf_t             *b;
+    ngx_lua_ctx_t         *lua_ctx;
+    ngx_connection_t      *c;
+    ngx_lua_socket_ctx_t  *ctx;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, rev->log, 0,
+                   "lua socket udp read handler");
+
+    c = rev->data;
+    ctx = c->data;
+    b = ctx->response;
+
+    if (rev->timedout) {
+        ngx_log_error(NGX_LOG_ERR, rev->log, NGX_ETIMEDOUT,
+                      "lua socket udp read %V timed out",
+                      &ctx->udp_connection.server);
+        n = NGX_ERROR;
+        goto done;
+    }
+
+    if (rev->timer_set) {
+        ngx_del_timer(rev);
+    }
+
+    n = ngx_udp_recv(c, b->last, b->end - b->last);
+
+    if (n == NGX_AGAIN) {
+        ngx_add_timer(rev, ctx->read_timeout);
+
+#if 0
+        if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+            n = NGX_ERROR;
+            goto done;
+        }
+#endif
+
+        ctx->rc = NGX_AGAIN;
+        return;
+    }
+
+done:
+
+    rev->handler = ngx_lua_socket_dummy_handler;
+
+    if (ctx->r == NULL) {
+        return;
+    }
+
+    lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
+
+    lua_pushnumber(lua_ctx->l, n);
+
+    ctx->rc = 1;
+
+    if (n > 0) {
+        lua_pushlstring(lua_ctx->l, (char *) b->pos, n);
+
+        ctx->rc++;
+    }
+
+    if (ctx->not_event) {
+        return;
+    }
+
+    rc = ngx_lua_thread_run(ctx->r, lua_ctx, ctx->rc);
+    if (rc == NGX_AGAIN) {
+        return;
+    }
+
+    ngx_lua_finalize(ctx->r, rc);
 }
