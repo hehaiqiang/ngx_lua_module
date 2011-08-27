@@ -153,14 +153,14 @@ ngx_lua_file_open(lua_State *l)
     pool = ngx_create_pool(ngx_pagesize, ngx_cycle->log);
     if (pool == NULL) {
         errstr = "ngx_create_pool() failed";
-        goto failed;
+        goto error;
     }
 
     *ctx = ngx_pcalloc(pool, sizeof(ngx_lua_file_ctx_t));
     if (*ctx == NULL) {
         ngx_destroy_pool(pool);
         errstr = "ngx_pcalloc() failed";
-        goto failed;
+        goto error;
     }
 
     (*ctx)->pool = pool;
@@ -168,7 +168,7 @@ ngx_lua_file_open(lua_State *l)
     cln_ctx = ngx_pcalloc(r->pool, sizeof(ngx_lua_file_cleanup_ctx_t));
     if (cln_ctx == NULL) {
         errstr = "ngx_pcalloc() failed";
-        goto failed;
+        goto error;
     }
 
     cln_ctx->ctx = (*ctx);
@@ -176,7 +176,7 @@ ngx_lua_file_open(lua_State *l)
     cln = ngx_http_cleanup_add(r, 0);
     if (cln == NULL) {
         errstr = "ngx_http_cleanup_add() failed";
-        goto failed;
+        goto error;
     }
 
     cln->handler = ngx_lua_file_cleanup;
@@ -192,14 +192,14 @@ ngx_lua_file_open(lua_State *l)
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
                       ngx_open_file_n " \"%s\" failed", name);
         errstr = ngx_open_file_n " failed";
-        goto failed;
+        goto error;
     }
 
     file->log = ngx_cycle->log;
 
     return 1;
 
-failed:
+error:
 
     lua_pop(l, 1);
     lua_pushnil(l);
@@ -254,7 +254,7 @@ ngx_lua_file_read(lua_State *l)
 
     if (file->fd == NGX_INVALID_FILE) {
         errstr = "invalid fd";
-        goto failed;
+        goto error;
     }
 
     ngx_memzero(&fi, sizeof(ngx_file_info_t));
@@ -263,7 +263,7 @@ ngx_lua_file_read(lua_State *l)
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
                       ngx_fd_info_n " failed");
         errstr = ngx_fd_info_n " failed";
-        goto failed;
+        goto error;
     }
 
     size = (size_t) ngx_file_size(&fi);
@@ -273,7 +273,7 @@ ngx_lua_file_read(lua_State *l)
 
     if (size <= 0 || offset < 0) {
         errstr = "invalid size or offset of the file or the file is empty";
-        goto failed;
+        goto error;
     }
 
     b = ctx->in;
@@ -288,7 +288,7 @@ ngx_lua_file_read(lua_State *l)
         b = ngx_create_temp_buf(ctx->pool, buf_size);
         if (b == NULL) {
             errstr = "ngx_create_temp_buf() failed";
-            goto failed;
+            goto error;
         }
 
         ctx->in = b;
@@ -302,7 +302,7 @@ ngx_lua_file_read(lua_State *l)
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
                       "ngx_file_aio_read() failed");
         errstr = "ngx_file_aio_read() failed";
-        goto failed;
+        goto error;
     }
 
     if (n == NGX_AGAIN) {
@@ -317,7 +317,7 @@ ngx_lua_file_read(lua_State *l)
 
     return 1;
 
-failed:
+error:
 
     lua_pushnil(l);
     lua_pushstring(l, errstr);
@@ -349,7 +349,7 @@ ngx_lua_file_write(lua_State *l)
 
     if (file->fd == NGX_INVALID_FILE) {
         errstr = "invalid fd";
-        goto failed;
+        goto error;
     }
 
     str.data = (u_char *) luaL_checklstring(l, 2, &str.len);
@@ -357,7 +357,7 @@ ngx_lua_file_write(lua_State *l)
 
     if (offset < 0) {
         errstr = "invalid offset of the file";
-        goto failed;
+        goto error;
     }
 
     b = ctx->out;
@@ -372,7 +372,7 @@ ngx_lua_file_write(lua_State *l)
         b = ngx_create_temp_buf(ctx->pool, size);
         if (b == NULL) {
             errstr = "ngx_create_temp_buf() failed";
-            goto failed;
+            goto error;
         }
 
         ctx->out = b;
@@ -389,7 +389,7 @@ ngx_lua_file_write(lua_State *l)
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
                       "ngx_file_aio_write() failed");
         errstr = "ngx_file_aio_write() failed";
-        goto failed;
+        goto error;
     }
 
     if (n == NGX_AGAIN) {
@@ -402,7 +402,7 @@ ngx_lua_file_write(lua_State *l)
 
     if ((size_t) n != str.len) {
         errstr = "ngx_file_aio_write() n != str.len";
-        goto failed;
+        goto error;
     }
 
 #else
@@ -415,7 +415,7 @@ ngx_lua_file_write(lua_State *l)
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
                       "ngx_write_file() failed");
         errstr = "ngx_write_file() failed";
-        goto failed;
+        goto error;
     }
 
 #endif
@@ -426,7 +426,7 @@ ngx_lua_file_write(lua_State *l)
 
     return 1;
 
-failed:
+error:
 
     lua_pushnumber(l, NGX_ERROR);
     lua_pushstring(l, errstr);
