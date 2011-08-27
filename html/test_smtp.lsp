@@ -1,8 +1,9 @@
 <%
 local print = print
 local nginx = nginx
+local req = nginx.request
 
-local rc,err = nginx.smtp({
+local rc, errstr = nginx.smtp({
   host = "smtp.126.com",
   user = "ngxteam@126.com",
   password = "xxxxxxxxx",
@@ -17,10 +18,15 @@ local rc,err = nginx.smtp({
   content = "ngx_lua_module test smtp"
 })
 
-print(rc or "rc is null")
-
-if rc ~= nginx.OK then
-  print("<hr>")
-  print(err or "err is null")
-end
+if rc == nginx.ERROR then print(errstr) end
 %>
+<html>
+<head>
+</head>
+<body>
+<hr>
+test smtp api
+<hr>
+request time: <%=req.request_time%>ms
+</body>
+</html>
