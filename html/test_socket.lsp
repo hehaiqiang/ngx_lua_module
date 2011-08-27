@@ -1,24 +1,45 @@
 <%
+local print = print
 local nginx = nginx
-local resp = nginx.response
+local req = nginx.request
 local socket = nginx.socket
-resp.content_type = "text/html"
+
+function test_tcp()
+  local s, errstr = socket.open("www.nginx.org:80")
+  if not s then print(errstr) return end
+
+  local n, errstr = s:send("GET / HTTP/1.1\r\nHost: www.nginx.org\r\n\r\n")
+  if n <= 0 then print(errstr) s:close() return end
+
+  for i = 1, 8 do
+    local data, errstr = s:recv()
+    if not data then print("<hr>" .. errstr) break end
+    print(data)
+  end
+
+  s:close()
+end
+
+function test_udp()
+  local s = socket.open("127.0.0.1:53", socket.UDP)
+  if not s then print(errstr) return end
+
+  s:close()
+end
+
+if req["type"] == "udp" then
+  test_udp()
+else
+  test_tcp()
+end
 %>
-<% local s = socket.open("www.nginx.org:80") %>
-<%=s:send("GET / HTTP/1.1\r\nHost: www.nginx.org\r\n\r\n") or "send error"%>
+<html>
+<head>
+</head>
+<body>
 <hr>
-<% local n,res = s:recv() %>
-<%=n or "recv error"%>
+test socket api
 <hr>
-<%=res or "recv error"%>
-<hr>
-<% n,res = s:recv() %>
-<%=n or "recv error"%>
-<hr>
-<%=res or "recv error"%>
-<hr>
-<% n,res = s:recv() %>
-<%=n or "recv error"%>
-<hr>
-<%=res or "recv error"%>
-<% s:close() %>
+request time: <%=req.request_time%>ms
+</body>
+</html>
