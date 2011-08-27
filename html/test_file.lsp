@@ -1,22 +1,31 @@
 <%
+local print = print
 local nginx = nginx
 local file = nginx.file
+local req = nginx.request
+
+local f, errstr = file.open("c:/test.txt")
+if not f then print(errstr) return end
+
+local data, errstr = f:read()
+if not data then print(errstr) end
+
+print(data or "")
+print("<hr>")
+
+data = data or "test"
+local n, errstr = f:write(data)
+if n <= 0 then print(errstr) f:close() return end
+
+f:close()
 %>
 <html>
 <head>
 </head>
 <body>
-<% local f = file.open("c:/test.txt") %>
-<% local n,res = f:read() %>
-n: <%=n%>
-<br/>
-res: <%=res%>
 <hr>
-<% local n,err = f:write("kdkdksldskdlsdkkkkkkkkkkkkkkkkkkkkkkkkkk") %>
-n: <%=n%>
-<br/>
-err: <%=err or ""%>
+test file api
 <hr>
-<% f:close() %>
+request time: <%=req.request_time%>ms
 </body>
 </html>

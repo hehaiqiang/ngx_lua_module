@@ -12,21 +12,31 @@
 #define NGX_LUA_FILE  "ngx_lua_file_ctx_t*"
 
 
+typedef struct ngx_lua_file_cleanup_ctx_s  ngx_lua_file_cleanup_ctx_t;
+
+
 typedef struct {
-    ngx_pool_t            *pool;
-    ngx_file_t             file;
-    ngx_buf_t             *in;
-    ngx_buf_t             *out;
-    ngx_http_request_t    *r;
+    ngx_pool_t                    *pool;
+    ngx_file_t                     file;
+    ngx_buf_t                     *in;
+    ngx_buf_t                     *out;
+    ngx_http_request_t            *r;
+    ngx_lua_file_cleanup_ctx_t    *cln_ctx;
 } ngx_lua_file_ctx_t;
+
+
+struct ngx_lua_file_cleanup_ctx_s {
+    ngx_lua_file_ctx_t    *ctx;
+};
 
 
 static int ngx_lua_file_open(lua_State *l);
 static int ngx_lua_file_close(lua_State *l);
 static int ngx_lua_file_read(lua_State *l);
 static int ngx_lua_file_write(lua_State *l);
-static int ngx_lua_file_size(lua_State *l);
+static int ngx_lua_file_index(lua_State *l);
 static int ngx_lua_file_gc(lua_State *l);
+static int ngx_lua_file_info(lua_State *l);
 
 static ngx_inline ngx_lua_file_ctx_t *ngx_lua_file(lua_State *l);
 
@@ -34,6 +44,8 @@ static void ngx_lua_file_read_handler(ngx_event_t *ev);
 #if (NGX_WIN32)
 static void ngx_lua_file_write_handler(ngx_event_t *ev);
 #endif
+
+static void ngx_lua_file_cleanup(void *data);
 
 
 static ngx_lua_const_t  ngx_lua_file_consts[] = {
@@ -57,7 +69,9 @@ static luaL_Reg  ngx_lua_file_methods[] = {
     { "close", ngx_lua_file_close },
     { "read", ngx_lua_file_read },
     { "write", ngx_lua_file_write },
-    { "size", ngx_lua_file_size },
+#if 0
+    { "__index", ngx_lua_file_index },
+#endif
     { "__gc", ngx_lua_file_gc },
     { NULL, NULL }
 };
@@ -67,6 +81,8 @@ void
 ngx_lua_file_api_init(lua_State *l)
 {
     int  n;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ngx_cycle->log, 0, "lua file api init");
 
     luaL_newmetatable(l, NGX_LUA_FILE);
     lua_pushvalue(l, -1);
@@ -80,7 +96,7 @@ ngx_lua_file_api_init(lua_State *l)
     lua_pop(l, 1);
 
     n = sizeof(ngx_lua_file_consts) / sizeof(ngx_lua_const_t) - 1;
-    n += 1;
+    n += 2;
 
     lua_createtable(l, 0, n);
 
@@ -91,6 +107,8 @@ ngx_lua_file_api_init(lua_State *l)
 
     lua_pushcfunction(l, ngx_lua_file_open);
     lua_setfield(l, -2, "open");
+    lua_pushcfunction(l, ngx_lua_file_info);
+    lua_setfield(l, -2, "attributes");
 
     lua_setfield(l, -2, "file");
 }
@@ -99,42 +117,24 @@ ngx_lua_file_api_init(lua_State *l)
 static int
 ngx_lua_file_open(lua_State *l)
 {
-    int                   n, mode, create, access;
-    char                 *errstr;
-    u_char               *name;
-    ngx_pool_t           *pool;
-    ngx_file_t           *file;
-    ngx_lua_file_ctx_t  **ctx;
-    ngx_http_request_t   *r;
+    int                           mode, create, access;
+    char                         *errstr;
+    u_char                       *name;
+    ngx_pool_t                   *pool;
+    ngx_file_t                   *file;
+    ngx_http_cleanup_t           *cln;
+    ngx_http_request_t           *r;
+    ngx_lua_file_ctx_t          **ctx;
+    ngx_lua_file_cleanup_ctx_t   *cln_ctx;
 
     r = ngx_lua_request(l);
 
-    n = lua_gettop(l);
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file open");
 
     name = (u_char *) luaL_checkstring(l, 1);
-
-    /* mode, create, access */
-
-    if (n >= 2) {
-        mode = luaL_checkint(l, 2);
-
-    } else {
-        mode = NGX_FILE_RDWR;
-    }
-
-    if (n >= 3) {
-        create = luaL_checkint(l, 3);
-
-    } else {
-        create = NGX_FILE_CREATE_OR_OPEN;
-    }
-
-    if (n >= 4) {
-        access = luaL_checkint(l, 4);
-
-    } else {
-        access = NGX_FILE_DEFAULT_ACCESS;
-    }
+    mode = (int) luaL_optnumber(l, 2, NGX_FILE_RDWR);
+    create = (int) luaL_optnumber(l, 3, NGX_FILE_CREATE_OR_OPEN);
+    access = (int) luaL_optnumber(l, 4, NGX_FILE_DEFAULT_ACCESS);
 
     mode |= NGX_FILE_NONBLOCK;
 
@@ -165,6 +165,26 @@ ngx_lua_file_open(lua_State *l)
 
     (*ctx)->pool = pool;
 
+    cln_ctx = ngx_pcalloc(r->pool, sizeof(ngx_lua_file_cleanup_ctx_t));
+    if (cln_ctx == NULL) {
+        errstr = "ngx_pcalloc() failed";
+        goto failed;
+    }
+
+    cln_ctx->ctx = (*ctx);
+
+    cln = ngx_http_cleanup_add(r, 0);
+    if (cln == NULL) {
+        errstr = "ngx_http_cleanup_add() failed";
+        goto failed;
+    }
+
+    cln->handler = ngx_lua_file_cleanup;
+    cln->data = cln_ctx;
+
+    (*ctx)->r = r;
+    (*ctx)->cln_ctx = cln_ctx;
+
     file = &(*ctx)->file;
 
     file->fd = ngx_open_file(name, mode, create, access);
@@ -192,15 +212,20 @@ failed:
 static int
 ngx_lua_file_close(lua_State *l)
 {
+    ngx_http_request_t  *r;
     ngx_lua_file_ctx_t  *ctx;
+
+    r = ngx_lua_request(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file close");
 
     ctx = ngx_lua_file(l);
 
     if (ctx->file.fd != NGX_INVALID_FILE) {
         ngx_close_file(ctx->file.fd);
-    }
 
-    ctx->file.fd = NGX_INVALID_FILE;
+        ctx->file.fd = NGX_INVALID_FILE;
+    }
 
     return 0;
 }
@@ -209,68 +234,61 @@ ngx_lua_file_close(lua_State *l)
 static int
 ngx_lua_file_read(lua_State *l)
 {
-    size_t               size;
+    char                *errstr;
+    off_t                offset;
+    size_t               size, buf_size;
     ssize_t              n;
     ngx_buf_t           *b;
     ngx_file_t          *file;
     ngx_file_info_t      fi;
-    ngx_lua_file_ctx_t  *ctx;
     ngx_http_request_t  *r;
+    ngx_lua_file_ctx_t  *ctx;
 
     r = ngx_lua_request(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file read");
 
     ctx = ngx_lua_file(l);
 
     file = &ctx->file;
 
     if (file->fd == NGX_INVALID_FILE) {
-        lua_pushnumber(l, NGX_ERROR);
-        lua_pushstring(l, "invalid fd");
-        return 2;
+        errstr = "invalid fd";
+        goto failed;
     }
 
-    n = lua_gettop(l);
+    ngx_memzero(&fi, sizeof(ngx_file_info_t));
 
-    if (n >= 3) {
-        file->offset = luaL_checkint(l, 3);
+    if (ngx_fd_info(file->fd, &fi) == NGX_FILE_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
+                      ngx_fd_info_n " failed");
+        errstr = ngx_fd_info_n " failed";
+        goto failed;
     }
 
-    if (n >= 2) {
-        size = luaL_checkint(l, 2);
+    size = (size_t) ngx_file_size(&fi);
 
-    } else {
+    offset = (off_t) luaL_optnumber(l, 3, (lua_Number) file->offset);
+    size = (size_t) luaL_optnumber(l, 2, (lua_Number) (size - offset));
 
-        ngx_memzero(&fi, sizeof(ngx_file_info_t));
-
-        if (ngx_fd_info(ctx->file.fd, &fi) == NGX_FILE_ERROR) {
-            ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
-                          ngx_fd_info_n " failed");
-            lua_pushnumber(l, NGX_FILE_ERROR);
-            lua_pushstring(l, "ngx_fd_info() failed");
-            return 2;
-        }
-
-        size = (size_t) (ngx_file_size(&fi) - file->offset);
-    }
-
-    if (size <= 0) {
-        lua_pushnumber(l, NGX_FILE_ERROR);
-        lua_pushstring(l, "invalid size or the file is empty");
-        return 2;
+    if (size <= 0 || offset < 0) {
+        errstr = "invalid size or offset of the file or the file is empty";
+        goto failed;
     }
 
     b = ctx->in;
 
     if (b == NULL || (size_t) (b->end - b->start) < size) {
-        if (b != NULL) {
+        if (b != NULL && (size_t) (b->end - b->start) > ctx->pool->max) {
             ngx_pfree(ctx->pool, b->start);
         }
 
-        b = ngx_create_temp_buf(ctx->pool, ngx_max(ngx_pagesize, size));
+        buf_size = ngx_max(ngx_pagesize, size);
+
+        b = ngx_create_temp_buf(ctx->pool, buf_size);
         if (b == NULL) {
-            lua_pushnumber(l, NGX_ERROR);
-            lua_pushstring(l, "ngx_create_temp_buf() failed");
-            return 2;
+            errstr = "ngx_create_temp_buf() failed";
+            goto failed;
         }
 
         ctx->in = b;
@@ -278,134 +296,199 @@ ngx_lua_file_read(lua_State *l)
 
     b->last = b->pos;
 
-    n = ngx_file_aio_read(file, b->last, size, file->offset, ctx->pool);
+    n = ngx_file_aio_read(file, b->last, size, offset, ctx->pool);
 
     if (n == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
                       "ngx_file_aio_read() failed");
-        lua_pushnumber(l, NGX_ERROR);
-        lua_pushstring(l, "ngx_file_aio_read() failed");
-        return 2;
+        errstr = "ngx_file_aio_read() failed";
+        goto failed;
     }
 
     if (n == NGX_AGAIN) {
-        ctx->r = r;
         ctx->file.aio->data = ctx;
         ctx->file.aio->handler = ngx_lua_file_read_handler;
-
         return lua_yield(l, 0);
     }
 
-    /* TODO */
+    /* n > 0 */
 
-    return 0;
+    lua_pushlstring(l, (char *) b->pos, n);
+
+    return 1;
+
+failed:
+
+    lua_pushnil(l);
+    lua_pushstring(l, errstr);
+
+    return 2;
 }
 
 
 static int
 ngx_lua_file_write(lua_State *l)
 {
-#if (NGX_WIN32)
-
+    char                *errstr;
+    off_t                offset;
+    size_t               size;
     ssize_t              n;
     ngx_str_t            str;
     ngx_buf_t           *b;
     ngx_file_t          *file;
-    ngx_lua_file_ctx_t  *ctx;
     ngx_http_request_t  *r;
+    ngx_lua_file_ctx_t  *ctx;
 
     r = ngx_lua_request(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file write");
 
     ctx = ngx_lua_file(l);
 
     file = &ctx->file;
 
     if (file->fd == NGX_INVALID_FILE) {
-        lua_pushnumber(l, NGX_ERROR);
-        lua_pushstring(l, "invalid fd");
-        return 2;
+        errstr = "invalid fd";
+        goto failed;
     }
 
     str.data = (u_char *) luaL_checklstring(l, 2, &str.len);
+    offset = (off_t) luaL_optnumber(l, 3, (lua_Number) file->offset);
 
-    if (lua_gettop(l) >= 3) {
-        file->offset = luaL_checkint(l, 3);
+    if (offset < 0) {
+        errstr = "invalid offset of the file";
+        goto failed;
     }
 
     b = ctx->out;
 
     if (b == NULL || (size_t) (b->end - b->start) < str.len) {
-        if (b != NULL) {
+        if (b != NULL && (size_t) (b->end - b->start) > ctx->pool->max) {
             ngx_pfree(ctx->pool, b->start);
         }
 
-        b = ngx_create_temp_buf(ctx->pool, ngx_max(ngx_pagesize, str.len));
+        size = ngx_max(ngx_pagesize, str.len);
+
+        b = ngx_create_temp_buf(ctx->pool, size);
         if (b == NULL) {
-            lua_pushnumber(l, NGX_ERROR);
-            lua_pushstring(l, "ngx_create_temp_buf() failed");
-            return 2;
+            errstr = "ngx_create_temp_buf() failed";
+            goto failed;
         }
 
         ctx->out = b;
     }
 
     b->pos = b->start;
-    b->last = ngx_cpymem(b->start, str.data, str.len);
+    b->last = ngx_cpymem(b->pos, str.data, str.len);
 
-    n = ngx_file_aio_write(file, b->pos, str.len, file->offset, ctx->pool);
+#if (NGX_WIN32)
+
+    n = ngx_file_aio_write(file, b->pos, str.len, offset, ctx->pool);
 
     if (n == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
                       "ngx_file_aio_write() failed");
-        lua_pushnumber(l, NGX_ERROR);
-        lua_pushstring(l, "ngx_file_aio_write() failed");
-        return 2;
+        errstr = "ngx_file_aio_write() failed";
+        goto failed;
     }
 
     if (n == NGX_AGAIN) {
-        ctx->r = r;
         ctx->file.aio->data = ctx;
         ctx->file.aio->handler = ngx_lua_file_write_handler;
-
         return lua_yield(l, 0);
     }
 
-    /* TODO */
+    /* n > 0 */
 
-    return 0;
+    if ((size_t) n != str.len) {
+        errstr = "ngx_file_aio_write() n != str.len";
+        goto failed;
+    }
 
 #else
 
-    return luaL_error(l, "not implement on this platform");
+    /* TODO: AIO write for linux, freebsd and solaris, etc */
+
+    n = ngx_write_file(file, b->pos, str.len, offset);
+
+    if (n == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
+                      "ngx_write_file() failed");
+        errstr = "ngx_write_file() failed";
+        goto failed;
+    }
 
 #endif
+
+    /* n > 0 */
+
+    lua_pushnumber(l, n);
+
+    return 1;
+
+failed:
+
+    lua_pushnumber(l, NGX_ERROR);
+    lua_pushstring(l, errstr);
+
+    return 2;
 }
 
 
+#if 0
 static int
-ngx_lua_file_size(lua_State *l)
+ngx_lua_file_index(lua_State *l)
 {
+    ngx_str_t            key;
     ngx_file_info_t      fi;
-    ngx_lua_file_ctx_t  *ctx;
     ngx_http_request_t  *r;
+    ngx_lua_file_ctx_t  *ctx;
 
     r = ngx_lua_request(l);
 
-    ctx = ngx_lua_file(l);
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file index");
 
-    ngx_memzero(&fi, sizeof(ngx_file_info_t));
+    key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
-    if (ngx_fd_info(ctx->file.fd, &fi) == NGX_FILE_ERROR) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
-                      ngx_fd_info_n " failed");
-        lua_pushnumber(l, NGX_FILE_ERROR);
-        return 1;
+    switch (key.len) {
+
+    case 4:
+
+        if (ngx_strncmp(key.data, "size", 4) == 0) {
+            ctx = ngx_lua_file(l);
+
+            ngx_memzero(&fi, sizeof(ngx_file_info_t));
+
+            if (ngx_fd_info(ctx->file.fd, &fi) == NGX_FILE_ERROR) {
+                ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
+                              ngx_fd_info_n " failed");
+                lua_pushnil(l);
+                lua_pushstring(l, ngx_fd_info_n " failed");
+                return 1;
+            }
+
+            lua_pushnumber(l, (lua_Number) ngx_file_size(&fi));
+
+            return 1;
+        }
+
+        break;
+
+    case 10:
+
+        if (ngx_strncmp(key.data, "attributes", 10) == 0) {
+            /* TODO */
+        }
+
+        break;
+
+    default:
+        break;
     }
 
-    lua_pushnumber(l, (lua_Number) ngx_file_size(&fi));
-
-    return 1;
+    return 0;
 }
+#endif
 
 
 static int
@@ -413,13 +496,32 @@ ngx_lua_file_gc(lua_State *l)
 {
     ngx_lua_file_ctx_t  *ctx;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ngx_cycle->log, 0, "lua file gc");
+
     ctx = ngx_lua_file(l);
 
     if (ctx->file.fd != NGX_INVALID_FILE) {
         ngx_close_file(ctx->file.fd);
+
+        ctx->file.fd = NGX_INVALID_FILE;
     }
 
     ngx_destroy_pool(ctx->pool);
+
+    return 0;
+}
+
+
+static int
+ngx_lua_file_info(lua_State *l)
+{
+    ngx_http_request_t  *r;
+
+    r = ngx_lua_request(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file info");
+
+    /* TODO */
 
     return 0;
 }
@@ -447,21 +549,26 @@ ngx_lua_file_read_handler(ngx_event_t *ev)
     ngx_event_aio_t     *aio;
     ngx_lua_file_ctx_t  *ctx;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0, "lua file read handler");
+
     aio = ev->data;
     ctx = aio->data;
 
     ev->complete = 0;
 
-    lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
-
     /* TODO: error handling */
 
-    lua_pushnumber(lua_ctx->l, ev->available);
+    if (ctx->r == NULL) {
+        return;
+    }
+
+    lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
+
     lua_pushlstring(lua_ctx->l, (char *) ctx->in->pos, ev->available);
 
     ctx->file.offset += ev->available;
 
-    rc = ngx_lua_thread_run(ctx->r, lua_ctx, 2);
+    rc = ngx_lua_thread_run(ctx->r, lua_ctx, 1);
     if (rc == NGX_AGAIN) {
         return;
     }
@@ -480,14 +587,20 @@ ngx_lua_file_write_handler(ngx_event_t *ev)
     ngx_event_aio_t     *aio;
     ngx_lua_file_ctx_t  *ctx;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0, "lua file write handler");
+
     aio = ev->data;
     ctx = aio->data;
 
     ev->complete = 0;
 
-    lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
-
     /* TODO: error handling */
+
+    if (ctx->r == NULL) {
+        return;
+    }
+
+    lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
 
     lua_pushnumber(lua_ctx->l, ev->available);
 
@@ -502,3 +615,15 @@ ngx_lua_file_write_handler(ngx_event_t *ev)
 }
 
 #endif
+
+
+static void
+ngx_lua_file_cleanup(void *data)
+{
+    ngx_lua_file_cleanup_ctx_t *cln_ctx = data;
+
+    if (cln_ctx->ctx != NULL) {
+        cln_ctx->ctx->r = NULL;
+        cln_ctx->ctx->cln_ctx = NULL;
+    }
+}
