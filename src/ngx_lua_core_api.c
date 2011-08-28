@@ -17,7 +17,6 @@ static int ngx_lua_escape_uri(lua_State *l);
 static int ngx_lua_unescape_uri(lua_State *l);
 static int ngx_lua_encode_base64(lua_State *l);
 static int ngx_lua_decode_base64(lua_State *l);
-
 static int ngx_lua_crc16(lua_State *l);
 static int ngx_lua_crc32(lua_State *l);
 static int ngx_lua_murmur_hash2(lua_State *l);
@@ -47,8 +46,10 @@ static luaL_Reg  ngx_lua_methods[] = {
     { "murmur_hash2", ngx_lua_murmur_hash2 },
     { "md5", ngx_lua_md5 },
     { "sha1", ngx_lua_sha1 },
+
     { "http", ngx_lua_http },
     { "smtp", ngx_lua_smtp },
+
     { NULL, NULL }
 };
 
@@ -122,7 +123,8 @@ ngx_lua_escape_uri(lua_State *l)
 
     len = 2 * ngx_escape_uri(NULL, str.data, str.len, 0);
     if (len == 0) {
-        goto done;
+        lua_pushlstring(l, (char *) str.data, str.len);
+        return 1;
     }
 
     p = ngx_pnalloc(r->pool, str.len + len);
@@ -134,8 +136,6 @@ ngx_lua_escape_uri(lua_State *l)
 
     str.len = last - p;
     str.data = p;
-
-done:
 
     lua_pushlstring(l, (char *) str.data, str.len);
 
