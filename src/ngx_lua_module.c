@@ -458,7 +458,7 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
 
     ngx_pool_cleanup_t  *cln;
 
-    if (lmcf->cache_zone.data == NULL) {
+    if (lmcf->cache_name.data == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                           "the directive \"lua_cache\" must be specified");
         return NGX_CONF_ERROR;
@@ -467,20 +467,21 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
     ngx_conf_init_size_value(lmcf->cache_size, 1024 * 1024 * 1);
     ngx_conf_init_value(lmcf->cache_expire, 30 * 60);
 
-    lmcf->zone = ngx_shared_memory_add(cf, &lmcf->cache_zone, lmcf->cache_size,
-                                       &ngx_lua_module);
-    if (lmcf->zone == NULL) {
+    lmcf->cache_zone = ngx_shared_memory_add(cf, &lmcf->cache_name,
+                                             lmcf->cache_size, &ngx_lua_module);
+    if (lmcf->cache_zone == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    if (lmcf->zone->data) {
+    if (lmcf->cache_zone->data) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "duplicate zone \"%V\"", &lmcf->cache_zone);
+                           "duplicate lua cache name \"%V\"",
+                           &lmcf->cache_name);
         return NGX_CONF_ERROR;
     }
 
-    lmcf->zone->init = ngx_lua_cache_init;
-    lmcf->zone->data = lmcf;
+    lmcf->cache_zone->init = ngx_lua_cache_init;
+    lmcf->cache_zone->data = lmcf;
 
     if (ngx_lua_state_new(cf, lmcf) == NGX_ERROR) {
         return NGX_CONF_ERROR;
@@ -507,7 +508,7 @@ ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_str_t   *value, str;
     ngx_uint_t   i;
 
-    if (lmcf->cache_zone.data != NULL) {
+    if (lmcf->cache_name.data != NULL) {
         return "is duplicate";
     }
 
@@ -515,9 +516,9 @@ ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     for (i = 1; i < cf->args->nelts; i++) {
 
-        if (ngx_strncmp(value[i].data, "zone=", 5) == 0) {
-            lmcf->cache_zone.len = value[i].len - 5;
-            lmcf->cache_zone.data = value[i].data + 5;
+        if (ngx_strncmp(value[i].data, "name=", 5) == 0) {
+            lmcf->cache_name.len = value[i].len - 5;
+            lmcf->cache_name.data = value[i].data + 5;
             continue;
         }
 

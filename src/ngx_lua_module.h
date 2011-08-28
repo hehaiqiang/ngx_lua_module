@@ -31,7 +31,7 @@ typedef struct {
     size_t                size;
     time_t                mtime;
     ngx_str_t             code;
-} ngx_lua_code_t;
+} ngx_lua_cache_code_t;
 
 
 typedef struct {
@@ -42,15 +42,34 @@ typedef struct {
 
 
 typedef struct {
+    ngx_rbtree_node_t     node;
+    ngx_str_t             name;
+} ngx_lua_dbd_conf_t;
+
+
+typedef struct {
+    ngx_rbtree_t          rbtree;
+    ngx_rbtree_node_t     sentinel;
+} ngx_lua_dbd_t;
+
+
+typedef struct {
     ngx_str_t             path;
     ngx_str_t             cpath;
-    ngx_str_t             cache_zone;
+
+    ngx_str_t             cache_name;
     size_t                cache_size;
     time_t                cache_expire;
-
     ngx_lua_cache_t      *cache;
-    ngx_slab_pool_t      *pool;
-    ngx_shm_zone_t       *zone;
+    ngx_slab_pool_t      *cache_pool;
+    ngx_shm_zone_t       *cache_zone;
+
+    ngx_str_t             dbd_name;
+    size_t                dbd_size;
+    ngx_lua_dbd_t        *dbd;
+    ngx_slab_pool_t      *dbd_pool;
+    ngx_shm_zone_t       *dbd_zone;
+
     lua_State            *l;
 } ngx_lua_main_conf_t;
 
