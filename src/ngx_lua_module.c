@@ -287,6 +287,7 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
             ngx_lua_output(r, (u_char *) "lua_dump() failed",
                            sizeof("lua_dump() failed") - 1);
+
             ngx_lua_finalize(r, NGX_ERROR);
             return;
         }
@@ -317,7 +318,6 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
     rc = ngx_lua_thread_run(r, ctx, 0);
     if (rc != NGX_AGAIN) {
-        ngx_lua_thread_close(r, ctx);
         ngx_lua_finalize(r, rc);
         return;
     }
@@ -327,8 +327,8 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 static void
 ngx_lua_aio_handler(ngx_event_t *ev)
 {
-    ngx_event_aio_t     *aio;
     ngx_lua_ctx_t       *ctx;
+    ngx_event_aio_t     *aio;
     ngx_http_request_t  *r;
 
     aio = ev->data;
@@ -343,10 +343,10 @@ ngx_lua_aio_handler(ngx_event_t *ev)
 
     ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
+    ctx->lsp->last += ev->available;
+
     ngx_close_file(ctx->file.fd);
     ctx->file.fd = NGX_INVALID_FILE;
-
-    ctx->lsp->last += ev->available;
 
     ngx_lua_handle_request(r, ctx);
 }
@@ -394,7 +394,7 @@ ngx_lua_writer(lua_State *l, const void *buf, size_t size, void *data)
 
     b = ctx->buf;
 
-    if ((size_t)(b->end - b->last) < size) {
+    if ((size_t) (b->end - b->last) < size) {
         ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
                       "not enough space in buffer");
         return -1;
