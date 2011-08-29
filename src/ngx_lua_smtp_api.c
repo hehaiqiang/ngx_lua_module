@@ -480,17 +480,22 @@ ngx_lua_smtp_read_handler(ngx_event_t *rev)
 
             rc = ngx_lua_smtp_handle_response(ctx);
 
+            if (rc == NGX_OK) {
+                return;
+            }
+
             if (rc == NGX_AGAIN) {
                 continue;
             }
 
-            if (rc == NGX_ERROR) {
-                ngx_lua_smtp_finalize(ctx,
-                                      "ngx_lua_smtp_handle_response() failed");
+            if (rc == NGX_DONE) {
+                ngx_lua_smtp_finalize(ctx, NULL);
+                return;
             }
 
-            /* rc == NGX_OK */
+            /* rc == NGX_ERROR */
 
+            ngx_lua_smtp_finalize(ctx, "ngx_lua_smtp_handle_response() failed");
             return;
         }
 
@@ -701,9 +706,7 @@ ngx_lua_smtp_handle_response(ngx_lua_smtp_ctx_t *ctx)
             return NGX_ERROR;
         }
 
-        ngx_lua_smtp_finalize(ctx, NULL);
-
-        return NGX_OK;
+        return NGX_DONE;
 
     default:
         return NGX_ERROR;
