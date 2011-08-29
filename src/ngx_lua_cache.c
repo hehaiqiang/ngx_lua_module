@@ -217,8 +217,8 @@ ngx_lua_cache_expire(ngx_lua_main_conf_t *lmcf)
 
 
 static void
-ngx_lua_cache_insert_value(ngx_rbtree_node_t *temp,
-    ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel)
+ngx_lua_cache_insert_value(ngx_rbtree_node_t *temp, ngx_rbtree_node_t *node,
+    ngx_rbtree_node_t *sentinel)
 {
     ngx_rbtree_node_t     **p;
     ngx_lua_cache_code_t   *code, *code_temp;
