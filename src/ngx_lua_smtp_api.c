@@ -183,6 +183,8 @@ ngx_lua_smtp(lua_State *l)
         return lua_yield(l, 0);
     }
 
+    cln_ctx->ctx = NULL;
+
     if (ctx->peer.connection) {
         ngx_close_connection(ctx->peer.connection);
     }
@@ -270,7 +272,7 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
 
     n = lua_objlen(l, -1);
     if (n == 0) {
-        return luaL_error(l, "the argument \"to\" is a empty table");
+        return luaL_error(l, "the argument \"to\" is an empty table");
     }
 
     for (i = 1; i <= n; i++) {
