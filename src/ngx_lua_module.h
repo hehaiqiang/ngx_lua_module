@@ -26,7 +26,6 @@ typedef struct {
     ngx_rbtree_node_t     node;
     ngx_queue_t           queue;
     time_t                expire;
-
     ngx_str_t             path;
     size_t                size;
     time_t                mtime;
@@ -44,6 +43,13 @@ typedef struct {
 typedef struct {
     ngx_rbtree_node_t     node;
     ngx_str_t             name;
+    ngx_str_t             drv;
+    ngx_str_t             host;
+    in_port_t             port;
+    ngx_str_t             db;
+    ngx_str_t             user;
+    ngx_str_t             passwd;
+    ngx_uint_t            connection_n;
 } ngx_lua_dbd_conf_t;
 
 
@@ -69,6 +75,8 @@ typedef struct {
     ngx_lua_dbd_t        *dbd;
     ngx_slab_pool_t      *dbd_pool;
     ngx_shm_zone_t       *dbd_zone;
+    ngx_rbtree_t          dbd_rbtree;
+    ngx_rbtree_node_t     dbd_sentinel;
 
     lua_State            *l;
 } ngx_lua_main_conf_t;
@@ -99,6 +107,8 @@ ngx_int_t ngx_lua_thread_new(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 void ngx_lua_thread_close(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 ngx_int_t ngx_lua_thread_run(ngx_http_request_t *r, ngx_lua_ctx_t *ctx, int n);
 
+ngx_int_t ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
+
 ngx_http_request_t *ngx_lua_request(lua_State *l);
 ngx_int_t ngx_lua_output(ngx_http_request_t *r, u_char *buf, size_t size);
 void ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc);
@@ -107,7 +117,9 @@ ngx_int_t ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data);
 ngx_int_t ngx_lua_cache_get(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 ngx_int_t ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 
-ngx_int_t ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
+ngx_int_t ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data);
+void ngx_lua_dbd_insert_value(ngx_rbtree_node_t *temp, ngx_rbtree_node_t *node,
+    ngx_rbtree_node_t *sentinel);
 
 int ngx_lua_http(lua_State *l);
 int ngx_lua_smtp(lua_State *l);

@@ -21,6 +21,7 @@ static ngx_int_t ngx_lua_init(ngx_conf_t *cf);
 static void *ngx_lua_create_main_conf(ngx_conf_t *cf);
 static char *ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf);
 static char *ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_lua(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
@@ -43,6 +44,13 @@ static ngx_command_t  ngx_lua_commands[] = {
     { ngx_string("lua_cache"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE3,
       ngx_lua_cache,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("lua_dbd"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE2,
+      ngx_lua_dbd,
       NGX_HTTP_MAIN_CONF_OFFSET,
       0,
       NULL },
@@ -447,6 +455,8 @@ ngx_lua_create_main_conf(ngx_conf_t *cf)
     lmcf->cache_size = NGX_CONF_UNSET_SIZE;
     lmcf->cache_expire = NGX_CONF_UNSET;
 
+    lmcf->dbd_size = NGX_CONF_UNSET_SIZE;
+
     return lmcf;
 }
 
@@ -457,6 +467,8 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
     ngx_lua_main_conf_t *lmcf = conf;
 
     ngx_pool_cleanup_t  *cln;
+
+    /* cache */
 
     if (lmcf->cache_name.data == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
@@ -482,6 +494,34 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
 
     lmcf->cache_zone->init = ngx_lua_cache_init;
     lmcf->cache_zone->data = lmcf;
+
+    /* dbd */
+
+    if (lmcf->dbd_name.data == NULL) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                          "the directive \"lua_dbd\" must be specified");
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_conf_init_size_value(lmcf->dbd_size, 1024 * 512);
+
+    lmcf->dbd_zone = ngx_shared_memory_add(cf, &lmcf->dbd_name, lmcf->dbd_size,
+                                           &ngx_lua_module);
+    if (lmcf->dbd_zone == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    if (lmcf->dbd_zone->data) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "duplicate lua dbd name \"%V\"", &lmcf->dbd_name);
+        return NGX_CONF_ERROR;
+    }
+
+    lmcf->dbd_zone->init = ngx_lua_dbd_init;
+    lmcf->dbd_zone->data = lmcf;
+
+    ngx_rbtree_init(&lmcf->dbd_rbtree, &lmcf->dbd_sentinel,
+                    ngx_lua_dbd_insert_value);
 
     if (ngx_lua_state_new(cf, lmcf) == NGX_ERROR) {
         return NGX_CONF_ERROR;
@@ -551,6 +591,52 @@ invalid:
 
     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                        "invalid parameter \"%V\" in lua_cache", &value[i]);
+
+    return NGX_CONF_ERROR;
+}
+
+
+static char *
+ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_lua_main_conf_t *lmcf = conf;
+
+    ngx_str_t   *value, str;
+    ngx_uint_t   i;
+
+    if (lmcf->dbd_name.data != NULL) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    for (i = 1; i < cf->args->nelts; i++) {
+
+        if (ngx_strncmp(value[i].data, "name=", 5) == 0) {
+            lmcf->dbd_name.len = value[i].len - 5;
+            lmcf->dbd_name.data = value[i].data + 5;
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "size=", 5) == 0) {
+            str.len = value[i].len - 5;
+            str.data = value[i].data + 5;
+            lmcf->dbd_size = ngx_parse_size(&str);
+            if (lmcf->dbd_size == (size_t) NGX_ERROR) {
+                goto invalid;
+            }
+            continue;
+        }
+
+        goto invalid;
+    }
+
+    return NGX_CONF_OK;
+
+invalid:
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "invalid parameter \"%V\" in lua_dbd", &value[i]);
 
     return NGX_CONF_ERROR;
 }
