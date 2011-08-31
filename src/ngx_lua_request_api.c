@@ -296,8 +296,8 @@ static int
 ngx_lua_request_index(lua_State *l)
 {
     ngx_str_t            key, value;
-    ngx_time_t          *tp;
     ngx_msec_int_t       ms;
+    struct timeval       tv;
     ngx_http_request_t  *r;
 
     r = ngx_lua_request(l);
@@ -386,9 +386,9 @@ ngx_lua_request_index(lua_State *l)
     case 12:
 
         if (ngx_strncmp(key.data, "request_time", 12) == 0) {
-            tp = ngx_timeofday();
-            ms = (ngx_msec_int_t)
-                 ((tp->sec - r->start_sec) * 1000 + (tp->msec - r->start_msec));
+            ngx_gettimeofday(&tv);
+            ms = (ngx_msec_int_t) ((tv.tv_sec - r->start_sec) * 1000
+                                   + (tv.tv_usec / 1000 - r->start_msec));
             ms = ngx_max(ms, 0);
 
             lua_pushnumber(l, ms);
