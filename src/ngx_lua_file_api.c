@@ -202,7 +202,7 @@ ngx_lua_file_open(lua_State *l)
 error:
 
     lua_pop(l, 1);
-    lua_pushnil(l);
+    lua_pushboolean(l, 0);
     lua_pushstring(l, errstr);
 
     return 2;
@@ -319,7 +319,7 @@ ngx_lua_file_read(lua_State *l)
 
 error:
 
-    lua_pushnil(l);
+    lua_pushboolean(l, 0);
     lua_pushstring(l, errstr);
 
     return 2;
@@ -428,7 +428,7 @@ ngx_lua_file_write(lua_State *l)
 
 error:
 
-    lua_pushnumber(l, NGX_ERROR);
+    lua_pushboolean(l, 0);
     lua_pushstring(l, errstr);
 
     return 2;

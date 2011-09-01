@@ -15,7 +15,7 @@ print("<hr>")
 
 data = data or "test"
 local n, errstr = f:write(data)
-if n <= 0 then print(errstr) f:close() return end
+if not n then print(errstr) f:close() return end
 
 f:close()
 %>
