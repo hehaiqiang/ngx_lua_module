@@ -204,8 +204,6 @@ ngx_lua_dbd_create_pool(lua_State *l)
 
     ngx_shmtx_lock(&lmcf->dbd_pool->mutex);
 
-    /* TODO */
-
     conf = ngx_lua_dbd_pool_lookup(lmcf, &name);
     if (conf != NULL) {
         goto done;
@@ -1055,13 +1053,13 @@ ngx_lua_dbd_finalize(ngx_lua_dbd_ctx_t *ctx, ngx_int_t rc)
         ctx->rc++;
     }
 
+    ngx_lua_dbd_free_connection(ctx->lmcf, ctx->c);
+
     if (ctx->not_event) {
         return;
     }
 
     rc = ctx->rc;
-
-    ngx_lua_dbd_free_connection(ctx->lmcf, ctx->c);
 
     ngx_destroy_pool(ctx->pool);
 
