@@ -504,7 +504,7 @@ ngx_lua_dbd_execute(lua_State *l)
 
 error:
 
-    lua_pushnil(l);
+    lua_pushboolean(l, 0);
     lua_pushstring(l, errstr);
 
     return 2;
@@ -1047,7 +1047,7 @@ ngx_lua_dbd_finalize(ngx_lua_dbd_ctx_t *ctx, ngx_int_t rc)
     } else {
 
         lua_pop(lua_ctx->l, 1);
-        lua_pushnil(lua_ctx->l);
+        lua_pushboolean(lua_ctx->l, 0);
         lua_pushstring(lua_ctx->l, (char *) ngx_dbd_error(ctx->c->dbd));
 
         ctx->rc++;
