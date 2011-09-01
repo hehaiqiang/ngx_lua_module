@@ -185,17 +185,13 @@ ngx_lua_smtp(lua_State *l)
 
     cln_ctx->ctx = NULL;
 
-    if (ctx->peer.connection) {
-        ngx_close_connection(ctx->peer.connection);
-    }
-
     ngx_destroy_pool(ctx->pool);
 
     return rc;
 
 error:
 
-    lua_pushnumber(l, NGX_ERROR);
+    lua_pushboolean(l, 0);
     lua_pushstring(l, errstr);
 
     return 2;
@@ -329,7 +325,7 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
 
 error:
 
-    lua_pushnumber(l, NGX_ERROR);
+    lua_pushboolean(l, 0);
     lua_pushstring(l, errstr);
 
     return NGX_ERROR;
@@ -752,13 +748,17 @@ ngx_lua_smtp_finalize(ngx_lua_smtp_ctx_t *ctx, char *errstr)
     ctx->rc = 1;
 
     if (errstr == NULL) {
-        lua_pushnumber(lua_ctx->l, NGX_OK);
+        lua_pushboolean(lua_ctx->l, 1);
 
     } else {
-        lua_pushnumber(lua_ctx->l, NGX_ERROR);
+        lua_pushboolean(lua_ctx->l, 0);
         lua_pushstring(lua_ctx->l, errstr);
 
         ctx->rc++;
+    }
+
+    if (ctx->peer.connection) {
+        ngx_close_connection(ctx->peer.connection);
     }
 
     if (ctx->not_event) {
@@ -766,10 +766,6 @@ ngx_lua_smtp_finalize(ngx_lua_smtp_ctx_t *ctx, char *errstr)
     }
 
     rc = ctx->rc;
-
-    if (ctx->peer.connection) {
-        ngx_close_connection(ctx->peer.connection);
-    }
 
     ngx_destroy_pool(ctx->pool);
 

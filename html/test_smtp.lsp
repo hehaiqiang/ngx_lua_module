@@ -18,7 +18,7 @@ local rc, errstr = nginx.smtp({
   content = "ngx_lua_module test smtp"
 })
 
-if rc == nginx.ERROR then print(errstr) end
+if not rc then print(errstr) end
 %>
 <html>
 <head>
