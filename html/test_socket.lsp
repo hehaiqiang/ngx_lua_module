@@ -9,7 +9,7 @@ function test_tcp()
   if not s then print(errstr) return end
 
   local n, errstr = s:send("GET / HTTP/1.1\r\nHost: www.nginx.org\r\n\r\n")
-  if n <= 0 then print(errstr) s:close() return end
+  if not n then print(errstr) s:close() return end
 
   for i = 1, 8 do
     local data, errstr = s:recv()
@@ -23,6 +23,8 @@ end
 function test_udp()
   local s = socket.open("127.0.0.1:53", socket.UDP)
   if not s then print(errstr) return end
+
+  -- TODO: s:send() and s:recv()
 
   s:close()
 end
