@@ -21,7 +21,7 @@ function test_tcp()
 end
 
 function test_udp()
-  local s = socket.open("127.0.0.1:53", socket.UDP)
+  local s, errstr = socket.open("127.0.0.1:53", socket.UDP)
   if not s then print(errstr) return end
 
   -- TODO: s:send() and s:recv()
