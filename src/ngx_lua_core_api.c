@@ -97,19 +97,22 @@ ngx_lua_api_init(lua_State *l)
 static int
 ngx_lua_print(lua_State *l)
 {
+    int                  n, i;
     ngx_str_t            str;
     ngx_http_request_t  *r;
 
     r = ngx_lua_request(l);
 
-    /* TODO: arguments */
+    n = lua_gettop(l);
 
-    str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
+    for (i = 1; i <= n; i++) {
+        str.data = (u_char *) luaL_checklstring(l, i, &str.len);
 
-    if (ngx_lua_output(r, str.data, str.len) == NGX_ERROR) {
-        lua_pushboolean(l, 0);
-        lua_pushstring(l, "ngx_lua_output() failed");
-        return 2;
+        if (ngx_lua_output(r, str.data, str.len) == NGX_ERROR) {
+            lua_pushboolean(l, 0);
+            lua_pushstring(l, "ngx_lua_output() failed");
+            return 2;
+        }
     }
 
     lua_pushboolean(l, 1);
