@@ -102,10 +102,19 @@ ngx_lua_print(lua_State *l)
 
     r = ngx_lua_request(l);
 
-    str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
-    ngx_lua_output(r, str.data, str.len);
+    /* TODO: arguments */
 
-    return 0;
+    str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
+
+    if (ngx_lua_output(r, str.data, str.len) == NGX_ERROR) {
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "ngx_lua_output() failed");
+        return 2;
+    }
+
+    lua_pushboolean(l, 1);
+
+    return 1;
 }
 
 
@@ -121,23 +130,24 @@ ngx_lua_escape_uri(lua_State *l)
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
-    len = 2 * ngx_escape_uri(NULL, str.data, str.len, 0);
+    len = ngx_escape_uri(NULL, str.data, str.len, 0);
     if (len == 0) {
         lua_pushlstring(l, (char *) str.data, str.len);
         return 1;
     }
 
-    p = ngx_pnalloc(r->pool, str.len + len);
+    len = str.len + len * 2;
+
+    p = ngx_pnalloc(r->pool, len);
     if (p == NULL) {
-        return luaL_error(l, "ngx_pnalloc() failed");
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "ngx_pnalloc() failed");
+        return 2;
     }
 
     last = (u_char *) ngx_escape_uri(p, str.data, str.len, 0);
 
-    str.len = last - p;
-    str.data = p;
-
-    lua_pushlstring(l, (char *) str.data, str.len);
+    lua_pushlstring(l, (char *) p, last - p);
 
     return 1;
 }
@@ -146,7 +156,7 @@ ngx_lua_escape_uri(lua_State *l)
 static int
 ngx_lua_unescape_uri(lua_State *l)
 {
-    u_char              *dst, *src;
+    u_char              *dst, *p;
     ngx_str_t            str;
     ngx_http_request_t  *r;
 
@@ -154,18 +164,18 @@ ngx_lua_unescape_uri(lua_State *l)
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
-    dst = ngx_pnalloc(r->pool, str.len);
-    if (dst == NULL) {
-        return luaL_error(l, "ngx_pnalloc() failed");
+    p = ngx_pnalloc(r->pool, str.len);
+    if (p == NULL) {
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "ngx_pnalloc() failed");
+        return 2;
     }
 
-    src = str.data;
+    dst = p;
 
-    str.data = dst;
-    ngx_unescape_uri(&dst, &src, str.len, 0);
-    str.len = dst - str.data;
+    ngx_unescape_uri(&dst, &str.data, str.len, 0);
 
-    lua_pushlstring(l, (char *) str.data, str.len);
+    lua_pushlstring(l, (char *) p, dst - p);
 
     return 1;
 }
@@ -185,7 +195,9 @@ ngx_lua_encode_base64(lua_State *l)
 
     dst.data = ngx_pnalloc(r->pool, dst.len);
     if (dst.data == NULL) {
-        return luaL_error(l, "ngx_pnalloc() failed");
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "ngx_pnalloc() failed");
+        return 2;
     }
 
     ngx_encode_base64(&dst, &src);
@@ -210,11 +222,15 @@ ngx_lua_decode_base64(lua_State *l)
 
     dst.data = ngx_pnalloc(r->pool, dst.len);
     if (dst.data == NULL) {
-        return luaL_error(l, "ngx_pnalloc() failed");
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "ngx_pnalloc() failed");
+        return 2;
     }
 
     if (ngx_decode_base64(&dst, &src) == NGX_ERROR) {
-        return luaL_error(l, "ngx_decode_base64() failed");
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "ngx_decode_base64() failed");
+        return 2;
     }
 
     lua_pushlstring(l, (char *) dst.data, dst.len);
@@ -309,7 +325,9 @@ ngx_lua_md5(lua_State *l)
 
     md5 = ngx_pnalloc(r->pool, 48);
     if (md5 == NULL) {
-        return luaL_error(l, "ngx_palloc() failed");
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "ngx_palloc() failed");
+        return 2;
     }
 
     hex = md5 + 16;
@@ -340,7 +358,9 @@ ngx_lua_sha1(lua_State *l)
 
     sha1 = ngx_pnalloc(r->pool, 72);
     if (sha1 == NULL) {
-        return luaL_error(l, "ngx_palloc() failed");
+        lua_pushboolean(l, 0);
+        lua_pushstring(l, "ngx_palloc() failed");
+        return 2;
     }
 
     hex = sha1 + 24;
