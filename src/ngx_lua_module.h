@@ -69,6 +69,7 @@ typedef struct {
     ngx_lua_cache_t      *cache;
     ngx_slab_pool_t      *cache_pool;
     ngx_shm_zone_t       *cache_zone;
+    ngx_event_t           cache_event;
 
     ngx_str_t             dbd_name;
     size_t                dbd_size;
@@ -114,6 +115,7 @@ ngx_int_t ngx_lua_output(ngx_http_request_t *r, u_char *buf, size_t size);
 void ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc);
 
 ngx_int_t ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data);
+void ngx_lua_cache_expire(ngx_event_t *ev);
 ngx_int_t ngx_lua_cache_get(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 ngx_int_t ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 

@@ -17,6 +17,8 @@ static int ngx_lua_writer(lua_State *l, const void *buf, size_t size,
     void *data);
 static void ngx_lua_cleanup(void *data);
 
+static ngx_int_t ngx_lua_process_init(ngx_cycle_t *cycle);
+
 static ngx_int_t ngx_lua_init(ngx_conf_t *cf);
 static void *ngx_lua_create_main_conf(ngx_conf_t *cf);
 static char *ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf);
@@ -88,7 +90,7 @@ ngx_module_t  ngx_lua_module = {
     NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
-    NULL,                                  /* init process */
+    ngx_lua_process_init,                  /* init process */
     NULL,                                  /* init thread */
     NULL,                                  /* exit thread */
     NULL,                                  /* exit process */
@@ -411,6 +413,25 @@ ngx_lua_writer(lua_State *l, const void *buf, size_t size, void *data)
     b->last = ngx_cpymem(b->last, buf, size);
 
     return 0;
+}
+
+
+static ngx_int_t
+ngx_lua_process_init(ngx_cycle_t *cycle)
+{
+    ngx_lua_main_conf_t  *lmcf;
+
+    lmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_lua_module);
+
+    lmcf->cache_event.handler = ngx_lua_cache_expire;
+    lmcf->cache_event.data = lmcf;
+    lmcf->cache_event.log = cycle->log;
+
+    /* TODO */
+
+    ngx_add_timer(&lmcf->cache_event, 10 * 60 * 1000);
+
+    return NGX_OK;
 }
 
 

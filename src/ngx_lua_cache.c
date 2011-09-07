@@ -63,11 +63,63 @@ ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data)
 }
 
 
+void
+ngx_lua_cache_expire(ngx_event_t *ev)
+{
+    time_t                 now;
+    ngx_uint_t             i;
+    ngx_queue_t           *q;
+    ngx_lua_main_conf_t   *lmcf;
+    ngx_lua_cache_code_t  *code;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0, "lua cache expire");
+
+    lmcf = ev->data;
+
+    if (!ngx_shmtx_trylock(&lmcf->cache_pool->mutex)) {
+        goto done;
+    }
+
+    now = ngx_time();
+
+    for (i = 0; i < 2; i++) {
+        if (ngx_queue_empty(&lmcf->cache->queue)) {
+            break;
+        }
+
+        q = ngx_queue_last(&lmcf->cache->queue);
+        code = ngx_queue_data(q, ngx_lua_cache_code_t, queue);
+
+        if (code->expire >= now) {
+            break;
+        }
+
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, ev->log, 0,
+                       "lua cache expire node \"%V\"", &code->path);
+
+        ngx_queue_remove(&code->queue);
+        ngx_rbtree_delete(&lmcf->cache->rbtree, &code->node);
+        ngx_slab_free_locked(lmcf->cache_pool, code);
+    }
+
+    ngx_shmtx_unlock(&lmcf->cache_pool->mutex);
+
+done:
+
+    /* TODO */
+
+    ngx_add_timer(&lmcf->cache_event, 10 * 60 * 1000);
+}
+
+
 ngx_int_t
 ngx_lua_cache_get(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 {
+    time_t                 now;
     ngx_lua_main_conf_t   *lmcf;
     ngx_lua_cache_code_t  *code;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua cache get");
 
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
 
@@ -79,17 +131,22 @@ ngx_lua_cache_get(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         return NGX_DECLINED;
     }
 
+    now = ngx_time();
+
+    ngx_log_debug6(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "mtime:%T-%T size:%uz-%uz expire:%T-%T",
+                   code->mtime, ctx->mtime, code->size, ctx->size, code->expire,
+                   now);
+
     if (code->mtime != ctx->mtime
         || code->size != ctx->size
-        || code->expire < ngx_time())
+        || code->expire < now)
     {
         ngx_queue_remove(&code->queue);
         ngx_rbtree_delete(&lmcf->cache->rbtree, &code->node);
-
         ngx_slab_free_locked(lmcf->cache_pool, code);
 
         ngx_shmtx_unlock(&lmcf->cache_pool->mutex);
-
         return NGX_DECLINED;
     }
 
@@ -113,6 +170,8 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     ngx_lua_main_conf_t   *lmcf;
     ngx_lua_cache_code_t  *code;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua cache set");
+
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
 
     ngx_shmtx_lock(&lmcf->cache_pool->mutex);
@@ -124,7 +183,6 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         ngx_queue_insert_head(&lmcf->cache->queue, &code->queue);
 
         ngx_shmtx_unlock(&lmcf->cache_pool->mutex);
-
         return NGX_OK;
     }
 
@@ -132,6 +190,9 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
     size = sizeof(ngx_lua_cache_code_t) + ctx->path.len
            + ctx->buf->last - ctx->buf->pos;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua cache node size:%uz", size);
 
     p = ngx_slab_alloc_locked(lmcf->cache_pool, size);
     if (p == NULL) {
@@ -142,20 +203,22 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     }
 
     code = (ngx_lua_cache_code_t *) p;
+    p += sizeof(ngx_lua_cache_code_t);
 
     ngx_memzero(code, sizeof(ngx_lua_cache_code_t));
 
     code->expire = ngx_time() + lmcf->cache_expire + 60;
 
     code->path.len = ctx->path.len;
-    code->path.data = p + sizeof(ngx_lua_cache_code_t);
+    code->path.data = p;
+    p += ctx->path.len;
     ngx_memcpy(code->path.data, ctx->path.data, ctx->path.len);
 
     code->size = ctx->size;
     code->mtime = ctx->mtime;
 
     code->code.len = ctx->buf->last - ctx->buf->pos;
-    code->code.data = p + sizeof(ngx_lua_cache_code_t) + ctx->path.len;
+    code->code.data = p;
     ngx_memcpy(code->code.data, ctx->buf->pos, code->code.len);
 
     code->node.key = ngx_crc32_short(ctx->path.data, ctx->path.len);
@@ -165,54 +228,6 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     ngx_shmtx_unlock(&lmcf->cache_pool->mutex);
 
     return NGX_OK;
-}
-
-
-void
-ngx_lua_cache_expire(ngx_lua_main_conf_t *lmcf)
-{
-    /* TODO */
-
-#if 0
-    time_t                 now;
-    ngx_uint_t             i;
-    ngx_queue_t           *q;
-    ngx_p2p_cam_t         *pc;
-    ngx_p2p_online_id_t   *poi;
-    ngx_p2p_online_cam_t  *poc;
-
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ngx_cycle->log, 0, "p2p expire nodes");
-
-    /* expire cameras */
-
-    ngx_shmtx_lock(&p2p->shpool->mutex);
-
-    now = ngx_time();
-
-    for (i = 0; i < 2; i++) {
-        if (ngx_queue_empty(&p2p->sh->cam_queue)) {
-            break;
-        }
-
-        q = ngx_queue_last(&p2p->sh->cam_queue);
-        pc = ngx_queue_data(q, ngx_p2p_cam_t, queue);
-
-        if (now <= pc->expire) {
-            break;
-        }
-
-        ngx_log_debug1(NGX_LOG_DEBUG_CORE, ngx_cycle->log, 0,
-                       "p2p camera expire \"%s\"", pc->camera_id);
-
-        ngx_queue_remove(&pc->queue);
-        ngx_rbtree_delete(&p2p->sh->cam_rbtree, &pc->node);
-        ngx_slab_free_locked(p2p->shpool, pc);
-
-        ngx_atomic_fetch_add(&p2p->sh->cam_count, -1);
-    }
-
-    ngx_shmtx_unlock(&p2p->shpool->mutex);
-#endif
 }
 
 
