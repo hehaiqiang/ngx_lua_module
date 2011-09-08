@@ -321,7 +321,7 @@ ngx_lua_handle_request(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         return;
     }
 
-    if (ngx_lua_thread_new(r, ctx) == NGX_ERROR) {
+    if (ngx_lua_thread_create(r, ctx) == NGX_ERROR) {
         ngx_lua_finalize(r, NGX_ERROR);
         return;
     }
@@ -448,7 +448,7 @@ ngx_lua_cleanup(void *data)
         ngx_close_file(ctx->file.fd);
     }
 
-    ngx_lua_thread_close(r, ctx);
+    ngx_lua_thread_destroy(r, ctx);
 }
 
 
@@ -542,17 +542,17 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
     ngx_rbtree_init(&lmcf->dbd_rbtree, &lmcf->dbd_sentinel,
                     ngx_lua_dbd_insert_value);
 
-    if (ngx_lua_state_new(cf, lmcf) == NGX_ERROR) {
+    if (ngx_lua_create(cf, lmcf) == NGX_ERROR) {
         return NGX_CONF_ERROR;
     }
 
     cln = ngx_pool_cleanup_add(cf->pool, 0);
     if (cln == NULL) {
-        ngx_lua_state_close(lmcf->l);
+        ngx_lua_destroy(lmcf->l);
         return NGX_CONF_ERROR;
     }
 
-    cln->handler = ngx_lua_state_close;
+    cln->handler = ngx_lua_destroy;
     cln->data = lmcf->l;
 
     return NGX_CONF_OK;

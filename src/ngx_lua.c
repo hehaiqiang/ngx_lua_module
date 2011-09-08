@@ -19,7 +19,7 @@ static int ngx_lua_panic(lua_State *l);
 
 
 ngx_int_t
-ngx_lua_state_new(ngx_conf_t *cf, ngx_lua_main_conf_t *lmcf)
+ngx_lua_create(ngx_conf_t *cf, ngx_lua_main_conf_t *lmcf)
 {
     lua_State  *l;
 
@@ -64,7 +64,7 @@ ngx_lua_state_new(ngx_conf_t *cf, ngx_lua_main_conf_t *lmcf)
 
 
 void
-ngx_lua_state_close(void *data)
+ngx_lua_destroy(void *data)
 {
     lua_State *l = data;
 
@@ -73,13 +73,14 @@ ngx_lua_state_close(void *data)
 
 
 ngx_int_t
-ngx_lua_thread_new(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
+ngx_lua_thread_create(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 {
     int                   top;
     lua_State            *l;
     ngx_lua_main_conf_t  *lmcf;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua thread new");
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "lua thread create");
 
     lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
 
@@ -129,13 +130,13 @@ ngx_lua_thread_new(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
 
 void
-ngx_lua_thread_close(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
+ngx_lua_thread_destroy(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 {
     lua_State            *l;
     ngx_lua_main_conf_t  *lmcf;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "lua thread close");
+                   "lua thread destroy");
 
     if (ctx->ref == LUA_NOREF) {
         return;
