@@ -106,9 +106,7 @@ ngx_lua_cache_expire(ngx_event_t *ev)
 
 done:
 
-    /* TODO */
-
-    ngx_add_timer(&lmcf->cache_event, 10 * 60 * 1000);
+    ngx_add_timer(&lmcf->cache_event, lmcf->cache_expire * 1000 / 10);
 }
 
 
@@ -186,10 +184,9 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         return NGX_OK;
     }
 
-    /* TODO: alignment */
-
-    size = sizeof(ngx_lua_cache_code_t) + ctx->path.len
-           + ctx->buf->last - ctx->buf->pos;
+    size = ngx_align(sizeof(ngx_lua_cache_code_t), NGX_ALIGNMENT)
+           + ngx_align(ctx->path.len, NGX_ALIGNMENT)
+           + ngx_align(ctx->buf->last - ctx->buf->pos, NGX_ALIGNMENT);
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "lua cache node size:%uz", size);
@@ -203,7 +200,7 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     }
 
     code = (ngx_lua_cache_code_t *) p;
-    p += sizeof(ngx_lua_cache_code_t);
+    p += ngx_align(sizeof(ngx_lua_cache_code_t), NGX_ALIGNMENT);
 
     ngx_memzero(code, sizeof(ngx_lua_cache_code_t));
 
@@ -211,7 +208,7 @@ ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
 
     code->path.len = ctx->path.len;
     code->path.data = p;
-    p += ctx->path.len;
+    p += ngx_align(ctx->path.len, NGX_ALIGNMENT);
     ngx_memcpy(code->path.data, ctx->path.data, ctx->path.len);
 
     code->size = ctx->size;

@@ -427,9 +427,7 @@ ngx_lua_process_init(ngx_cycle_t *cycle)
     lmcf->cache_event.data = lmcf;
     lmcf->cache_event.log = cycle->log;
 
-    /* TODO */
-
-    ngx_add_timer(&lmcf->cache_event, 10 * 60 * 1000);
+    ngx_add_timer(&lmcf->cache_event, lmcf->cache_expire * 1000 / 10);
 
     return NGX_OK;
 }

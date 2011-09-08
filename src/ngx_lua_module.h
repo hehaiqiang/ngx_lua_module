@@ -123,6 +123,7 @@ ngx_int_t ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data);
 void ngx_lua_dbd_insert_value(ngx_rbtree_node_t *temp, ngx_rbtree_node_t *node,
     ngx_rbtree_node_t *sentinel);
 
+
 int ngx_lua_http(lua_State *l);
 int ngx_lua_smtp(lua_State *l);
 
