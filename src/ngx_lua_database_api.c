@@ -63,6 +63,8 @@ static ngx_lua_dbd_connection_t *ngx_lua_dbd_get_connection(
     ngx_http_request_t *r, ngx_str_t *name);
 static void ngx_lua_dbd_free_connection(ngx_lua_main_conf_t *lmcf,
     ngx_lua_dbd_connection_t *c);
+static void ngx_lua_dbd_insert_value(ngx_rbtree_node_t *temp,
+    ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel);
 static ngx_lua_dbd_pool_t *ngx_lua_dbd_lookup(ngx_lua_main_conf_t *lmcf,
     ngx_str_t *name);
 
@@ -126,6 +128,9 @@ ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data)
 
     ngx_sprintf(lmcf->dbd_pool->log_ctx, " in lua dbd \"%V\"%Z",
                 &shm_zone->shm.name);
+
+    ngx_rbtree_init(&lmcf->dbd_rbtree, &lmcf->dbd_sentinel,
+                    ngx_lua_dbd_insert_value);
 
     return NGX_OK;
 }
@@ -680,7 +685,7 @@ ngx_lua_dbd_free_connection(ngx_lua_main_conf_t *lmcf,
 }
 
 
-void
+static void
 ngx_lua_dbd_insert_value(ngx_rbtree_node_t *temp, ngx_rbtree_node_t *node,
     ngx_rbtree_node_t *sentinel)
 {

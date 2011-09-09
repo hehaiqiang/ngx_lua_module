@@ -110,6 +110,8 @@ ngx_int_t ngx_lua_thread_run(ngx_http_request_t *r, ngx_lua_ctx_t *ctx, int n);
 
 ngx_int_t ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 
+ngx_int_t ngx_lua_handler(ngx_http_request_t *r);
+
 ngx_http_request_t *ngx_lua_request(lua_State *l);
 ngx_int_t ngx_lua_output(ngx_http_request_t *r, u_char *buf, size_t size);
 void ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc);
@@ -120,8 +122,6 @@ ngx_int_t ngx_lua_cache_get(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 ngx_int_t ngx_lua_cache_set(ngx_http_request_t *r, ngx_lua_ctx_t *ctx);
 
 ngx_int_t ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data);
-void ngx_lua_dbd_insert_value(ngx_rbtree_node_t *temp, ngx_rbtree_node_t *node,
-    ngx_rbtree_node_t *sentinel);
 
 
 int ngx_lua_http(lua_State *l);
