@@ -42,10 +42,10 @@ static void ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, axiom_element_t *parent_elem);
 
 static int ngx_lua_axis2c_serialize(lua_State *l);
-static axiom_node_t *ngx_lua_axis2c_serialize_table(lua_State *l,
-    axutil_env_t *env, axiom_node_t *parent);
 static void ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent);
+static void ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
+    axiom_node_t *parent, char *name);
 
 static axutil_allocator_t *ngx_lua_axis2c_allocator_create(
     ngx_http_request_t *r);
@@ -111,7 +111,7 @@ ngx_lua_axis2c_api_init(lua_State *l)
 static int
 ngx_lua_axis2c_parse(lua_State *l)
 {
-    char                   *uri, *prefix, *name, *text;
+    char                   *uri, *prefix, *name;
     ngx_str_t               soap;
     axiom_node_t           *node;
     axutil_env_t           *env;
@@ -161,8 +161,6 @@ ngx_lua_axis2c_parse(lua_State *l)
         }
     }
 
-    /* header */
-
     header = axiom_soap_envelope_get_header(envelope, env);
     if (header != NULL) {
         lua_createtable(l, 2, 4);
@@ -171,12 +169,8 @@ ngx_lua_axis2c_parse(lua_State *l)
         /* TODO */
     }
 
-    /* body */
-
     body = axiom_soap_envelope_get_body(envelope, env);
     if (body != NULL) {
-        lua_createtable(l, 2, 4);
-        lua_setfield(l, -2, "body");
 
         /* TODO: axiom_soap_body_has_fault */
 
@@ -196,48 +190,12 @@ ngx_lua_axis2c_parse(lua_State *l)
             return 1;
         }
 
-        elem = axiom_element_get_first_element(elem, env, node, &node);
-        if (elem == NULL) {
-            return 1;
-        }
+        lua_createtable(l, 2, 3);
 
-        lua_getfield(l, -1, "body");
+        ngx_lua_axis2c_parse_children(l, env, node,elem);
 
-        lua_pushstring(l, axiom_element_get_localname(elem, env));
-        lua_setfield(l, -2, "name");
-
-        ns = axiom_element_get_namespace(elem, env, node);
-        if (ns != NULL) {
-            uri = axiom_namespace_get_uri(ns, env);
-            if (uri != NULL) {
-                lua_pushstring(l, uri);
-                lua_setfield(l, -2, "uri");
-            }
-
-            prefix = axiom_namespace_get_prefix(ns, env);
-            if (prefix != NULL) {
-                lua_pushstring(l, prefix);
-                lua_setfield(l, -2, "prefix");
-            }
-        }
-
-        /* TODO: attributes */
-
-        text = axiom_element_get_text(elem, env, node);
-        if (text != NULL) {
-            lua_pushstring(l, text);
-            lua_setfield(l, -2, "text");
-
-        } else {
-            ngx_lua_axis2c_parse_children(l, env, node, elem);
-        }
-
-        lua_pop(l, 1);
+        lua_setfield(l, -2, "body");
     }
-
-#if 0
-    axutil_env_free(env);
-#endif
 
     return 1;
 }
@@ -247,8 +205,7 @@ static void
 ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, axiom_element_t *parent_elem)
 {
-    int                              n;
-    char                            *uri, *prefix, *text;
+    char                            *uri, *prefix, *name, *text;
     axiom_node_t                    *node;
     axiom_element_t                 *elem;
     axiom_namespace_t               *ns;
@@ -259,18 +216,13 @@ ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
         return;
     }
 
-    lua_newtable(l);
-    n = 1;
-
     do {
-
-        lua_createtable(l, 2, 4);
 
         node = axiom_child_element_iterator_next(it, env);
         elem = axiom_node_get_data_element(node, env);
+        name = axiom_element_get_localname(elem, env);
 
-        lua_pushstring(l, axiom_element_get_localname(elem, env));
-        lua_setfield(l, -2, "name");
+        lua_createtable(l, 2, 3);
 
         ns = axiom_element_get_namespace(elem, env, node);
         if (ns != NULL) {
@@ -295,20 +247,23 @@ ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
             lua_setfield(l, -2, "text");
 
         } else {
+            lua_newtable(l);
+
             ngx_lua_axis2c_parse_children(l, env, node, elem);
+
+            lua_setfield(l, -2, "children");
         }
 
-        lua_rawseti(l, -2, n++);
+        lua_setfield(l, -2, name);
 
     } while (axiom_child_element_iterator_has_next(it, env) == AXIS2_TRUE);
-
-    lua_setfield(l, -2, "children");
 }
 
 
 static int
 ngx_lua_axis2c_serialize(lua_State *l)
 {
+    int                     top;
     char                   *uri, *prefix;
     axiom_node_t           *node;
     axutil_env_t           *env;
@@ -325,7 +280,9 @@ ngx_lua_axis2c_serialize(lua_State *l)
 
     r = ngx_lua_request(l);
 
-    if (!lua_istable(l, -1)) {
+    top = lua_gettop(l);
+
+    if (!lua_istable(l, top)) {
         return luaL_error(l, "invalid argument, must be a table");
     }
 
@@ -334,37 +291,41 @@ ngx_lua_axis2c_serialize(lua_State *l)
     error = axutil_error_create(a);
     env = axutil_env_create_with_error_log(a, error, log);
 
-    lua_getfield(l, -1, "namespace");
+    lua_getfield(l, top, "uri");
     uri = (char *) luaL_optstring(l, -1,
                                   "http://www.w3.org/2003/05/soap-envelope");
 
-    lua_getfield(l, -2, "prefix");
+    lua_getfield(l, top, "prefix");
     prefix = (char *) luaL_optstring(l, -1, "soap");
 
     ns = axiom_namespace_create(env, uri, prefix);
     envelope = axiom_soap_envelope_create(env, ns);
 
-    lua_getfield(l, -3, "header");
-    if (lua_istable(l, -1)) {
+    lua_getfield(l, top, "header");
+    if (!lua_isnil(l, -1)) {
+        if (!lua_istable(l, -1)) {
+            return luaL_error(l, "the value of \"header\" must be a table");
+        }
+
         header = axiom_soap_header_create_with_parent(env, envelope);
+        node = axiom_soap_header_get_base_node(header, env);
 
-        /* TODO: axiom_soap_header_get_base_node */
-
-        /* TODO */
+        ngx_lua_axis2c_serialize_tables(l, env, node);
     }
 
-    lua_getfield(l, -4, "body");
-    if (lua_istable(l, -1)) {
+    lua_getfield(l, top, "body");
+    if (!lua_isnil(l, -1)) {
+        if (!lua_istable(l, -1)) {
+            return luaL_error(l, "the value of \"body\" must be a table");
+        }
+
         body = axiom_soap_body_create_with_parent(env, envelope);
+        node = axiom_soap_body_get_base_node(body, env);
 
-        /* TODO: axiom_soap_body_get_base_node */
-
-        node = ngx_lua_axis2c_serialize_table(l, env, NULL);
-
-        axiom_soap_body_add_child(body, env, node);
+        ngx_lua_axis2c_serialize_tables(l, env, node);
     }
 
-    lua_pop(l, 4);
+    lua_settop(l, top);
 
     writer = axiom_xml_writer_create_for_memory(env, NULL, AXIS2_FALSE,
                                                 AXIS2_FALSE,
@@ -374,30 +335,49 @@ ngx_lua_axis2c_serialize(lua_State *l)
 
     lua_pushstring(l, axiom_xml_writer_get_xml(writer, env));
 
-#if 0
-    axiom_xml_writer_free(writer, env);
-    axiom_soap_envelope_free(envelope, env);
-
-    axutil_env_free(env);
-#endif
-
     return 1;
 }
 
 
-static axiom_node_t *
-ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
+static void
+ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent)
 {
-    char               *uri, *prefix, *name, *text;
+    char  *name;
+
+    lua_pushnil(l);
+
+    while (lua_next(l, -2)) {
+        name = (char *) luaL_checkstring(l, -2);
+
+        if (!lua_istable(l, -1)) {
+            luaL_error(l, "the value of \"%s\" must be a table", name);
+        }
+
+        ngx_lua_axis2c_serialize_table(l, env, parent, name);
+
+        lua_pop(l, 1);
+    }
+}
+
+
+static void
+ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
+    axiom_node_t *parent, char *name)
+{
+    int                 top;
+    char               *uri, *prefix, *text, *value;
     axiom_node_t       *node;
     axiom_element_t    *elem;
     axiom_namespace_t  *ns;
+    axiom_attribute_t  *attr;
 
-    lua_getfield(l, -1, "uri");
+    top = lua_gettop(l);
+
+    lua_getfield(l, top, "uri");
     uri = (char *) luaL_optstring(l, -1, NULL);
 
-    lua_getfield(l, -2, "prefix");
+    lua_getfield(l, top, "prefix");
     prefix = (char *) luaL_optstring(l, -1, NULL);
 
     if (uri != NULL || prefix != NULL) {
@@ -407,53 +387,46 @@ ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
         ns = NULL;
     }
 
-    lua_getfield(l, -3, "name");
-    name = (char *) luaL_checkstring(l, -1);
-
     elem = axiom_element_create(env, parent, name, ns, &node);
 
-    /* TODO: attributes */
+    lua_getfield(l, top, "attributes");
+    if (!lua_isnil(l, -1)) {
+        if (!lua_istable(l, -1)) {
+            luaL_error(l, "the value of \"attributes\" must be a table");
+        }
 
-    lua_getfield(l, -4, "text");
+        lua_pushnil(l);
+
+        while (lua_next(l, -2)) {
+            name = (char *) luaL_checkstring(l, -2);
+            value = (char *) luaL_checkstring(l, -1);
+
+            attr = axiom_attribute_create(env, name, value, NULL);
+            axiom_element_add_attribute(elem, env, attr, node);
+
+            lua_pop(l, 1);
+        }
+    }
+
+    lua_getfield(l, top, "text");
     text = (char *) luaL_optstring(l, -1, NULL);
 
     if (text != NULL) {
         axiom_element_set_text(elem, env, text, node);
-        lua_pop(l, 4);
-        return node;
+        lua_settop(l, top);
+        return;
     }
 
-    lua_getfield(l, -5, "children");
-    if (lua_istable(l, -1)) {
+    lua_getfield(l, top, "children");
+    if (!lua_isnil(l, -1)) {
+        if (!lua_istable(l, -1)) {
+            luaL_error(l, "the value of \"children\" must be a table");
+        }
+
         ngx_lua_axis2c_serialize_tables(l, env, node);
     }
 
-    lua_pop(l, 5);
-
-    return node;
-}
-
-
-static void
-ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
-    axiom_node_t *parent)
-{
-    size_t  n, i;
-
-    n = lua_objlen(l, -1);
-
-    for (i = 1; i <= n; i++) {
-        lua_rawgeti(l, -1, i);
-        if (!lua_istable(l, -1)) {
-            luaL_error(l, "must be a table");
-        }
-
-        ngx_lua_axis2c_serialize_table(l, env, parent);
-    }
-
-    if (n > 0) {
-        lua_pop(l, (int) n);
-    }
+    lua_settop(l, top);
 }
 
 
