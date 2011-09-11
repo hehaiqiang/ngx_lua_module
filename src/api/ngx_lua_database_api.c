@@ -175,7 +175,7 @@ ngx_lua_dbd_create_pool(lua_State *l)
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "lua dbd create pool");
 
-    if (!lua_istable(l, -1)) {
+    if (!lua_istable(l, 1)) {
         return luaL_error(l, "invalid argument, must be a table");
     }
 
