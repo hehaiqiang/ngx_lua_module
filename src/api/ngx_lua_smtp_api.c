@@ -114,10 +114,6 @@ ngx_lua_smtp(lua_State *l)
     ctx->r = r;
     ctx->cln_ctx = cln_ctx;
 
-    if (!lua_istable(l, 1)) {
-        return luaL_error(l, "invalid the first argument, must be a table");
-    }
-
     if (ngx_lua_smtp_parse_args(l, r, ctx) == NGX_ERROR) {
         return 2;
     }
@@ -209,6 +205,10 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "lua smtp parse args");
+
+    if (!lua_istable(l, 1)) {
+        return luaL_error(l, "invalid the first argument, must be a table");
+    }
 
     top = lua_gettop(l);
 
