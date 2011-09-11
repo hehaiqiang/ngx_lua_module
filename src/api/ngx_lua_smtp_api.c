@@ -202,6 +202,7 @@ static ngx_int_t
 ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
     ngx_lua_smtp_ctx_t *ctx)
 {
+    int         top;
     char       *errstr;
     size_t      n, i;
     ngx_str_t   str, *to;
@@ -209,7 +210,7 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "lua smtp parse args");
 
-    /* host */
+    top = lua_gettop(l);
 
     lua_getfield(l, 1, "host");
     str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
@@ -221,8 +222,6 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
         goto error;
     }
 
-    /* user */
-
     lua_getfield(l, 1, "user");
     str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
 
@@ -232,8 +231,6 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
         errstr = "ngx_pstrdup() failed";
         goto error;
     }
-
-    /* password */
 
     lua_getfield(l, 1, "password");
     str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
@@ -245,8 +242,6 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
         goto error;
     }
 
-    /* from */
-
     lua_getfield(l, 1, "from");
     str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
 
@@ -256,8 +251,6 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
         errstr = "ngx_pstrdup() failed";
         goto error;
     }
-
-    /* to */
 
     lua_getfield(l, 1, "to");
     if (!lua_istable(l, -1)) {
@@ -291,8 +284,6 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
         lua_pop(l, 1);
     }
 
-    /* subject */
-
     lua_getfield(l, 1, "subject");
     str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
 
@@ -302,8 +293,6 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
         errstr = "ngx_pstrdup() failed";
         goto error;
     }
-
-    /* content */
 
     lua_getfield(l, 1, "content");
     str.data = (u_char *) luaL_checklstring(l, -1, &str.len);
@@ -315,7 +304,7 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
         goto error;
     }
 
-    lua_pop(l, 7);
+    lua_settop(l, top);
 
     ctx->connect_timeout = (ngx_msec_t) luaL_optnumber(l, 2, 60000);
     ctx->send_timeout = (ngx_msec_t) luaL_optnumber(l, 3, 60000);
@@ -325,6 +314,7 @@ ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
 
 error:
 
+    lua_settop(l, top);
     lua_pushboolean(l, 0);
     lua_pushstring(l, errstr);
 
