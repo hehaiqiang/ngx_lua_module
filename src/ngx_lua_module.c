@@ -16,6 +16,7 @@ static void *ngx_lua_create_main_conf(ngx_conf_t *cf);
 static char *ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf);
 static char *ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_lua_session(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_lua(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
@@ -45,6 +46,13 @@ static ngx_command_t  ngx_lua_commands[] = {
     { ngx_string("lua_dbd"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE2,
       ngx_lua_dbd,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      0,
+      NULL },
+
+    { ngx_string("lua_session"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE23,
+      ngx_lua_session,
       NGX_HTTP_MAIN_CONF_OFFSET,
       0,
       NULL },
@@ -132,6 +140,8 @@ ngx_lua_create_main_conf(ngx_conf_t *cf)
 
     lmcf->dbd_size = NGX_CONF_UNSET_SIZE;
 
+    lmcf->session_mode = NGX_CONF_UNSET_UINT;
+
     return lmcf;
 }
 
@@ -147,7 +157,7 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
 
     if (lmcf->cache_name.data == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                          "the directive \"lua_cache\" must be specified");
+                           "the directive \"lua_cache\" must be specified");
         return NGX_CONF_ERROR;
     }
 
@@ -174,7 +184,7 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
 
     if (lmcf->dbd_name.data == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                          "the directive \"lua_dbd\" must be specified");
+                           "the directive \"lua_dbd\" must be specified");
         return NGX_CONF_ERROR;
     }
 
@@ -194,6 +204,45 @@ ngx_lua_init_main_conf(ngx_conf_t *cf, void *conf)
 
     lmcf->dbd_zone->init = ngx_lua_dbd_init;
     lmcf->dbd_zone->data = lmcf;
+
+    /* session */
+
+    if (lmcf->session_mode == NGX_CONF_UNSET_UINT) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "the directive \"lua_session\" must be specified");
+        return NGX_CONF_ERROR;
+    }
+
+    if (lmcf->session_mode == NGX_SESSION_MODE_SINGLE) {
+        if (lmcf->session_name.data == NULL) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "the directive \"lua_session\" "
+                               "must be specified");
+            return NGX_CONF_ERROR;
+        }
+
+        ngx_conf_init_size_value(lmcf->session_size, 1024 * 1024 * 1);
+
+        lmcf->session_zone = ngx_shared_memory_add(cf, &lmcf->session_name,
+                                                   lmcf->session_size,
+                                                   &ngx_lua_module);
+        if (lmcf->session_zone == NULL) {
+            return NGX_CONF_ERROR;
+        }
+
+        if (lmcf->session_zone->data) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "duplicate lua session name \"%V\"",
+                               &lmcf->session_name);
+            return NGX_CONF_ERROR;
+        }
+
+        lmcf->session_zone->init = ngx_session_init;
+        lmcf->session_zone->data = &lmcf->session;
+
+    } else {
+        /* TODO: cluster */
+    }
 
     if (ngx_lua_create(cf, lmcf) == NGX_ERROR) {
         return NGX_CONF_ERROR;
@@ -309,6 +358,77 @@ invalid:
 
     ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                        "invalid parameter \"%V\" in lua_dbd", &value[i]);
+
+    return NGX_CONF_ERROR;
+}
+
+
+static char *
+ngx_lua_session(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_lua_main_conf_t *lmcf = conf;
+
+    ngx_str_t   *value, str;
+    ngx_uint_t   i;
+
+    if (lmcf->session_mode != NGX_CONF_UNSET_UINT) {
+        return "is duplicate";
+    }
+
+    value = cf->args->elts;
+
+    for (i = 1; i < cf->args->nelts; i++) {
+
+        if (ngx_strncmp(value[i].data, "mode=", 5) == 0) {
+            str.len = value[i].len - 5;
+            str.data = value[i].data + 5;
+
+            if (ngx_strncmp(str.data, "single", 6) == 0) {
+                lmcf->session_mode = NGX_SESSION_MODE_SINGLE;
+
+            } else if (ngx_strncmp(str.data, "cluster", 7) == 0) {
+                lmcf->session_mode = NGX_SESSION_MODE_CLUSTER;
+
+            } else {
+                goto invalid;
+            }
+
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "server=", 7) == 0) {
+            lmcf->session_server.len = value[i].len - 7;
+            lmcf->session_server.data = value[i].data + 7;
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "name=", 5) == 0) {
+            lmcf->session_name.len = value[i].len - 5;
+            lmcf->session_name.data = value[i].data + 5;
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "size=", 5) == 0) {
+            str.len = value[i].len - 5;
+            str.data = value[i].data + 5;
+
+            lmcf->session_size = ngx_parse_size(&str);
+            if (lmcf->session_size == (size_t) NGX_ERROR) {
+                goto invalid;
+            }
+
+            continue;
+        }
+
+        goto invalid;
+    }
+
+    return NGX_CONF_OK;
+
+invalid:
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "invalid parameter \"%V\" in lua_session", &value[i]);
 
     return NGX_CONF_ERROR;
 }

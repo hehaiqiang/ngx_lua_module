@@ -11,6 +11,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_session.h>
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -78,6 +79,13 @@ typedef struct {
     ngx_shm_zone_t       *dbd_zone;
     ngx_rbtree_t          dbd_rbtree;
     ngx_rbtree_node_t     dbd_sentinel;
+
+    ngx_uint_t            session_mode;
+    ngx_str_t             session_server;
+    ngx_str_t             session_name;
+    size_t                session_size;
+    ngx_session_t         session;
+    ngx_shm_zone_t       *session_zone;
 
     lua_State            *l;
 } ngx_lua_main_conf_t;

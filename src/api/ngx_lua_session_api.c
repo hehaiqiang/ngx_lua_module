@@ -9,29 +9,12 @@
 #include <ngx_lua_module.h>
 
 
-#define NGX_LUA_SESSION_CREATE     1
-#define NGX_LUA_SESSION_DESTROY    2
-#define NGX_LUA_SESSION_SET_PARAM  3
-#define NGX_LUA_SESSION_GET_PARAM  4
-#define NGX_LUA_SESSION_SET_VAR    5
-#define NGX_LUA_SESSION_GET_VAR    6
-#define NGX_LUA_SESSION_DEL_VAR    7
-
-
-typedef struct {
-    ngx_http_request_t    *r;
-    ngx_uint_t             op;
-} ngx_lua_session_ctx_t;
-
-
 static int ngx_lua_session_create(lua_State *l);
 static int ngx_lua_session_destroy(lua_State *l);
 static int ngx_lua_session_set_param(lua_State *l);
 static int ngx_lua_session_get_param(lua_State *l);
 static int ngx_lua_session_index(lua_State *l);
 static int ngx_lua_session_newindex(lua_State *l);
-
-static int ngx_lua_session_init(lua_State *l, ngx_uint_t op);
 
 
 static ngx_lua_const_t  ngx_lua_session_consts[] = {
@@ -82,52 +65,168 @@ ngx_lua_session_api_init(lua_State *l)
 static int
 ngx_lua_session_create(lua_State *l)
 {
-    return ngx_lua_session_init(l, NGX_LUA_SESSION_CREATE);
+    ngx_pool_t           *pool;
+    ngx_session_ctx_t    *ctx;
+    ngx_http_request_t   *r;
+    ngx_lua_main_conf_t  *lmcf;
+
+    r = ngx_lua_request(l);
+
+    pool = ngx_create_pool(ngx_pagesize, ngx_cycle->log);
+    if (pool == NULL) {
+    }
+
+    ctx = ngx_pcalloc(pool, sizeof(ngx_session_ctx_t));
+
+    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+
+    if (lmcf->session_mode == NGX_SESSION_MODE_SINGLE) {
+        ngx_session_create(&lmcf->session, ctx);
+    }
+
+    /* TODO */
+
+    return 0;
 }
 
 
 static int
 ngx_lua_session_destroy(lua_State *l)
 {
-    return ngx_lua_session_init(l, NGX_LUA_SESSION_DESTROY);
+    ngx_pool_t           *pool;
+    ngx_session_ctx_t    *ctx;
+    ngx_http_request_t   *r;
+    ngx_lua_main_conf_t  *lmcf;
+
+    r = ngx_lua_request(l);
+
+    pool = ngx_create_pool(ngx_pagesize, ngx_cycle->log);
+    if (pool == NULL) {
+    }
+
+    ctx = ngx_pcalloc(pool, sizeof(ngx_session_ctx_t));
+
+    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+
+    if (lmcf->session_mode == NGX_SESSION_MODE_SINGLE) {
+        ngx_session_destroy(&lmcf->session, ctx);
+    }
+
+    /* TODO */
+
+    return 0;
 }
 
 
 static int
 ngx_lua_session_set_param(lua_State *l)
 {
-    return ngx_lua_session_init(l, NGX_LUA_SESSION_SET_PARAM);
+    ngx_pool_t           *pool;
+    ngx_session_ctx_t    *ctx;
+    ngx_http_request_t   *r;
+    ngx_lua_main_conf_t  *lmcf;
+
+    r = ngx_lua_request(l);
+
+    pool = ngx_create_pool(ngx_pagesize, ngx_cycle->log);
+    if (pool == NULL) {
+    }
+
+    ctx = ngx_pcalloc(pool, sizeof(ngx_session_ctx_t));
+
+    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+
+    if (lmcf->session_mode == NGX_SESSION_MODE_SINGLE) {
+        ngx_session_set_param(&lmcf->session, ctx);
+    }
+
+    /* TODO */
+
+    return 0;
 }
 
 
 static int
 ngx_lua_session_get_param(lua_State *l)
 {
-    return ngx_lua_session_init(l, NGX_LUA_SESSION_GET_PARAM);
+    ngx_pool_t           *pool;
+    ngx_session_ctx_t    *ctx;
+    ngx_http_request_t   *r;
+    ngx_lua_main_conf_t  *lmcf;
+
+    r = ngx_lua_request(l);
+
+    pool = ngx_create_pool(ngx_pagesize, ngx_cycle->log);
+    if (pool == NULL) {
+    }
+
+    ctx = ngx_pcalloc(pool, sizeof(ngx_session_ctx_t));
+
+    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+
+    if (lmcf->session_mode == NGX_SESSION_MODE_SINGLE) {
+        ngx_session_get_param(&lmcf->session, ctx);
+    }
+
+    /* TODO */
+
+    return 0;
 }
 
 
 static int
 ngx_lua_session_index(lua_State *l)
 {
-    return ngx_lua_session_init(l, NGX_LUA_SESSION_GET_VAR);
+    ngx_pool_t           *pool;
+    ngx_session_ctx_t    *ctx;
+    ngx_http_request_t   *r;
+    ngx_lua_main_conf_t  *lmcf;
+
+    r = ngx_lua_request(l);
+
+    pool = ngx_create_pool(ngx_pagesize, ngx_cycle->log);
+    if (pool == NULL) {
+    }
+
+    ctx = ngx_pcalloc(pool, sizeof(ngx_session_ctx_t));
+
+    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+
+    if (lmcf->session_mode == NGX_SESSION_MODE_SINGLE) {
+        ngx_session_get_var(&lmcf->session, ctx);
+    }
+
+    /* TODO */
+
+    return 0;
 }
 
 
 static int
 ngx_lua_session_newindex(lua_State *l)
 {
-    /* TODO: NGX_LUA_SESSION_DEL_VAR */
-    return ngx_lua_session_init(l, NGX_LUA_SESSION_SET_VAR);
-}
-
-
-static int
-ngx_lua_session_init(lua_State *l, ngx_uint_t op)
-{
-    ngx_http_request_t  *r;
+    ngx_pool_t           *pool;
+    ngx_session_ctx_t    *ctx;
+    ngx_http_request_t   *r;
+    ngx_lua_main_conf_t  *lmcf;
 
     r = ngx_lua_request(l);
 
-    return luaL_error(l, "test error...");
+    pool = ngx_create_pool(ngx_pagesize, ngx_cycle->log);
+    if (pool == NULL) {
+    }
+
+    ctx = ngx_pcalloc(pool, sizeof(ngx_session_ctx_t));
+
+    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+
+    if (lmcf->session_mode == NGX_SESSION_MODE_SINGLE) {
+        ngx_session_set_var(&lmcf->session, ctx);
+
+        ngx_session_del_var(&lmcf->session, ctx);
+    }
+
+    /* TODO */
+
+    return 0;
 }
