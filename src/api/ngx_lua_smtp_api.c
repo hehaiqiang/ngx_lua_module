@@ -41,6 +41,9 @@ struct ngx_lua_smtp_cleanup_ctx_s {
 };
 
 
+static int ngx_lua_smtp_check(lua_State *l);
+static int ngx_lua_smtp_send(lua_State *l);
+
 static ngx_int_t ngx_lua_smtp_parse_args(lua_State *l, ngx_http_request_t *r,
     ngx_lua_smtp_ctx_t *ctx);
 
@@ -55,8 +58,44 @@ static void ngx_lua_smtp_finalize(ngx_lua_smtp_ctx_t *ctx, char *errstr);
 static void ngx_lua_smtp_cleanup(void *data);
 
 
-int
-ngx_lua_smtp(lua_State *l)
+static luaL_Reg  ngx_lua_smtp_methods[] = {
+    { "check", ngx_lua_smtp_check },
+    { "send", ngx_lua_smtp_send },
+    { NULL, NULL }
+};
+
+
+void
+ngx_lua_smtp_api_init(lua_State *l)
+{
+    int  n;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ngx_cycle->log, 0, "lua smtp api init");
+
+    n = sizeof(ngx_lua_smtp_methods) / sizeof(luaL_Reg) - 1;
+
+    lua_createtable(l, 0, n);
+
+    for (n = 0; ngx_lua_smtp_methods[n].name != NULL; n++) {
+        lua_pushcfunction(l, ngx_lua_smtp_methods[n].func);
+        lua_setfield(l, -2, ngx_lua_smtp_methods[n].name);
+    }
+
+    lua_setfield(l, -2, "smtp");
+}
+
+
+static int
+ngx_lua_smtp_check(lua_State *l)
+{
+    /* TODO */
+
+    return 0;
+}
+
+
+static int
+ngx_lua_smtp_send(lua_State *l)
 {
     char                        *errstr;
     ngx_int_t                    rc;
@@ -69,7 +108,7 @@ ngx_lua_smtp(lua_State *l)
 
     r = ngx_lua_request(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua smtp");
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua smtp send");
 
     pool = ngx_create_pool(ngx_pagesize, ngx_cycle->log);
     if (pool == NULL) {
