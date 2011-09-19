@@ -28,88 +28,88 @@
 typedef struct {
     axutil_allocator_t     allocator;
     ngx_http_request_t    *r;
-} ngx_lua_axis2c_allocator_t;
+} ngx_lua_webservice_allocator_t;
 
 
 typedef struct {
     axutil_log_t           log;
     ngx_http_request_t    *r;
-} ngx_lua_axis2c_log_t;
+} ngx_lua_webservice_log_t;
 
 
-static int ngx_lua_axis2c_parse(lua_State *l);
-static void ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
+static int ngx_lua_webservice_parse(lua_State *l);
+static void ngx_lua_webservice_parse_children(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, axiom_element_t *parent_elem);
 
-static int ngx_lua_axis2c_serialize(lua_State *l);
-static void ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
+static int ngx_lua_webservice_serialize(lua_State *l);
+static void ngx_lua_webservice_serialize_tables(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent);
-static void ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
+static void ngx_lua_webservice_serialize_table(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, char *name, int index);
 
-static axutil_allocator_t *ngx_lua_axis2c_allocator_create(
+static axutil_allocator_t *ngx_lua_webservice_allocator_create(
     ngx_http_request_t *r);
-static void *ngx_stdcall ngx_lua_axis2c_allocator_malloc(
+static void *ngx_stdcall ngx_lua_webservice_allocator_malloc(
     axutil_allocator_t *allocator, size_t size);
-static void *ngx_stdcall ngx_lua_axis2c_allocator_realloc(
+static void *ngx_stdcall ngx_lua_webservice_allocator_realloc(
     axutil_allocator_t *allocator, void *ptr, size_t size);
-static void ngx_stdcall ngx_lua_axis2c_allocator_free(
+static void ngx_stdcall ngx_lua_webservice_allocator_free(
     axutil_allocator_t *allocator, void *ptr);
 
-static axutil_log_t *ngx_lua_axis2c_log_create(ngx_http_request_t *r);
-static void ngx_stdcall ngx_lua_axis2c_log_free(axutil_allocator_t *allocator,
-    axutil_log_t *log);
-static void ngx_stdcall ngx_lua_axis2c_log_write(axutil_log_t *log,
+static axutil_log_t *ngx_lua_webservice_log_create(ngx_http_request_t *r);
+static void ngx_stdcall ngx_lua_webservice_log_free(
+    axutil_allocator_t *allocator, axutil_log_t *log);
+static void ngx_stdcall ngx_lua_webservice_log_write(axutil_log_t *log,
     const axis2_char_t *buffer, axutil_log_levels_t level,
     const axis2_char_t *file, const int line);
 
 
-static axutil_log_ops_t  ngx_lua_axis2c_log_ops = {
-    ngx_lua_axis2c_log_free,
-    ngx_lua_axis2c_log_write
+static axutil_log_ops_t  ngx_lua_webservice_log_ops = {
+    ngx_lua_webservice_log_free,
+    ngx_lua_webservice_log_write
 };
 
 
-static ngx_lua_const_t  ngx_lua_axis2c_consts[] = {
+static ngx_lua_const_t  ngx_lua_webservice_consts[] = {
     { NULL, 0 }
 };
 
 
-static luaL_Reg  ngx_lua_axis2c_methods[] = {
-    { "parse", ngx_lua_axis2c_parse },
-    { "serialize", ngx_lua_axis2c_serialize },
+static luaL_Reg  ngx_lua_webservice_methods[] = {
+    { "parse", ngx_lua_webservice_parse },
+    { "serialize", ngx_lua_webservice_serialize },
     { NULL, NULL }
 };
 
 
 void
-ngx_lua_axis2c_api_init(lua_State *l)
+ngx_lua_webservice_api_init(lua_State *l)
 {
     int  n;
 
-    n = sizeof(ngx_lua_axis2c_consts) / sizeof(ngx_lua_const_t) - 1;
-    n += sizeof(ngx_lua_axis2c_methods) / sizeof(luaL_Reg) - 1;
+    n = sizeof(ngx_lua_webservice_consts) / sizeof(ngx_lua_const_t) - 1;
+    n += sizeof(ngx_lua_webservice_methods) / sizeof(luaL_Reg) - 1;
 
     lua_createtable(l, 0, n);
 
-    for (n = 0; ngx_lua_axis2c_consts[n].name != NULL; n++) {
-        lua_pushinteger(l, ngx_lua_axis2c_consts[n].value);
-        lua_setfield(l, -2, ngx_lua_axis2c_consts[n].name);
+    for (n = 0; ngx_lua_webservice_consts[n].name != NULL; n++) {
+        lua_pushinteger(l, ngx_lua_webservice_consts[n].value);
+        lua_setfield(l, -2, ngx_lua_webservice_consts[n].name);
     }
 
-    for (n = 0; ngx_lua_axis2c_methods[n].name != NULL; n++) {
-        lua_pushcfunction(l, ngx_lua_axis2c_methods[n].func);
-        lua_setfield(l, -2, ngx_lua_axis2c_methods[n].name);
+    for (n = 0; ngx_lua_webservice_methods[n].name != NULL; n++) {
+        lua_pushcfunction(l, ngx_lua_webservice_methods[n].func);
+        lua_setfield(l, -2, ngx_lua_webservice_methods[n].name);
     }
 
-    lua_setfield(l, -2, "axis2c");
+    lua_setfield(l, -2, "webservice");
 
     axutil_error_init();
 }
 
 
 static int
-ngx_lua_axis2c_parse(lua_State *l)
+ngx_lua_webservice_parse(lua_State *l)
 {
     char                   *uri, *prefix, *name;
     ngx_str_t               soap;
@@ -134,8 +134,8 @@ ngx_lua_axis2c_parse(lua_State *l)
 
     lua_createtable(l, 2, 2);
 
-    a = ngx_lua_axis2c_allocator_create(r);
-    log = ngx_lua_axis2c_log_create(r);
+    a = ngx_lua_webservice_allocator_create(r);
+    log = ngx_lua_webservice_log_create(r);
     error = axutil_error_create(a);
     env = axutil_env_create_with_error_log(a, error, log);
 
@@ -170,7 +170,7 @@ ngx_lua_axis2c_parse(lua_State *l)
 
         lua_newtable(l);
 
-        ngx_lua_axis2c_parse_children(l, env, node, elem);
+        ngx_lua_webservice_parse_children(l, env, node, elem);
 
         lua_setfield(l, -2, "header");
     }
@@ -199,7 +199,7 @@ ngx_lua_axis2c_parse(lua_State *l)
 
         lua_newtable(l);
 
-        ngx_lua_axis2c_parse_children(l, env, node, elem);
+        ngx_lua_webservice_parse_children(l, env, node, elem);
 
         lua_setfield(l, -2, "body");
     }
@@ -209,7 +209,7 @@ ngx_lua_axis2c_parse(lua_State *l)
 
 
 static void
-ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
+ngx_lua_webservice_parse_children(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, axiom_element_t *parent_elem)
 {
     int                              n;
@@ -288,7 +288,7 @@ ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
         } else {
             lua_newtable(l);
 
-            ngx_lua_axis2c_parse_children(l, env, node, elem);
+            ngx_lua_webservice_parse_children(l, env, node, elem);
 
             lua_setfield(l, -2, "children");
         }
@@ -303,7 +303,7 @@ ngx_lua_axis2c_parse_children(lua_State *l, axutil_env_t *env,
 
 
 static int
-ngx_lua_axis2c_serialize(lua_State *l)
+ngx_lua_webservice_serialize(lua_State *l)
 {
     int                     top;
     char                   *uri, *prefix;
@@ -328,8 +328,8 @@ ngx_lua_axis2c_serialize(lua_State *l)
         return luaL_error(l, "invalid argument, must be a table");
     }
 
-    a = ngx_lua_axis2c_allocator_create(r);
-    log = ngx_lua_axis2c_log_create(r);
+    a = ngx_lua_webservice_allocator_create(r);
+    log = ngx_lua_webservice_log_create(r);
     error = axutil_error_create(a);
     env = axutil_env_create_with_error_log(a, error, log);
 
@@ -352,7 +352,7 @@ ngx_lua_axis2c_serialize(lua_State *l)
         header = axiom_soap_header_create_with_parent(env, envelope);
         node = axiom_soap_header_get_base_node(header, env);
 
-        ngx_lua_axis2c_serialize_tables(l, env, node);
+        ngx_lua_webservice_serialize_tables(l, env, node);
     }
 
     lua_getfield(l, top, "body");
@@ -364,7 +364,7 @@ ngx_lua_axis2c_serialize(lua_State *l)
         body = axiom_soap_body_create_with_parent(env, envelope);
         node = axiom_soap_body_get_base_node(body, env);
 
-        ngx_lua_axis2c_serialize_tables(l, env, node);
+        ngx_lua_webservice_serialize_tables(l, env, node);
     }
 
     lua_settop(l, top);
@@ -382,7 +382,7 @@ ngx_lua_axis2c_serialize(lua_State *l)
 
 
 static void
-ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
+ngx_lua_webservice_serialize_tables(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent)
 {
     int    type, n, i, index;
@@ -405,7 +405,7 @@ ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
 
         index = lua_gettop(l);
 
-        ngx_lua_axis2c_serialize_table(l, env, parent, name, index);
+        ngx_lua_webservice_serialize_table(l, env, parent, name, index);
 
         lua_pop(l, 1);
     }
@@ -426,7 +426,7 @@ ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
 
         index = lua_gettop(l) - 1;
 
-        ngx_lua_axis2c_serialize_table(l, env, parent, name, index);
+        ngx_lua_webservice_serialize_table(l, env, parent, name, index);
 
         lua_pop(l, 2);
     }
@@ -434,7 +434,7 @@ ngx_lua_axis2c_serialize_tables(lua_State *l, axutil_env_t *env,
 
 
 static void
-ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
+ngx_lua_webservice_serialize_table(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, char *name, int index)
 {
     int                 top;
@@ -495,7 +495,7 @@ ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
             luaL_error(l, "the value of \"children\" must be a table");
         }
 
-        ngx_lua_axis2c_serialize_tables(l, env, node);
+        ngx_lua_webservice_serialize_tables(l, env, node);
     }
 
     lua_settop(l, top);
@@ -503,18 +503,18 @@ ngx_lua_axis2c_serialize_table(lua_State *l, axutil_env_t *env,
 
 
 static axutil_allocator_t *
-ngx_lua_axis2c_allocator_create(ngx_http_request_t *r)
+ngx_lua_webservice_allocator_create(ngx_http_request_t *r)
 {
-    ngx_lua_axis2c_allocator_t  *a;
+    ngx_lua_webservice_allocator_t  *a;
 
-    a = ngx_pcalloc(r->pool, sizeof(ngx_lua_axis2c_allocator_t));
+    a = ngx_pcalloc(r->pool, sizeof(ngx_lua_webservice_allocator_t));
     if (a == NULL) {
         return NULL;
     }
 
-    a->allocator.malloc_fn = ngx_lua_axis2c_allocator_malloc;
-    a->allocator.realloc = ngx_lua_axis2c_allocator_realloc;
-    a->allocator.free_fn = ngx_lua_axis2c_allocator_free;
+    a->allocator.malloc_fn = ngx_lua_webservice_allocator_malloc;
+    a->allocator.realloc = ngx_lua_webservice_allocator_realloc;
+    a->allocator.free_fn = ngx_lua_webservice_allocator_free;
     a->r = r;
 
     return &a->allocator;
@@ -522,9 +522,10 @@ ngx_lua_axis2c_allocator_create(ngx_http_request_t *r)
 
 
 static void *ngx_stdcall
-ngx_lua_axis2c_allocator_malloc(axutil_allocator_t *allocator, size_t size)
+ngx_lua_webservice_allocator_malloc(axutil_allocator_t *allocator, size_t size)
 {
-    ngx_lua_axis2c_allocator_t *a = (ngx_lua_axis2c_allocator_t *) allocator;
+    ngx_lua_webservice_allocator_t *a
+        = (ngx_lua_webservice_allocator_t *) allocator;
 
     u_char  *p;
 
@@ -541,7 +542,7 @@ ngx_lua_axis2c_allocator_malloc(axutil_allocator_t *allocator, size_t size)
 
 
 static void *ngx_stdcall
-ngx_lua_axis2c_allocator_realloc(axutil_allocator_t *allocator, void *ptr,
+ngx_lua_webservice_allocator_realloc(axutil_allocator_t *allocator, void *ptr,
     size_t size)
 {
     size_t   osize;
@@ -554,18 +555,19 @@ ngx_lua_axis2c_allocator_realloc(axutil_allocator_t *allocator, void *ptr,
         return ptr;
     }
 
-    p = ngx_lua_axis2c_allocator_malloc(allocator, size);
+    p = ngx_lua_webservice_allocator_malloc(allocator, size);
     ngx_memcpy(p, ptr, osize);
-    ngx_lua_axis2c_allocator_free(allocator, ptr);
+    ngx_lua_webservice_allocator_free(allocator, ptr);
 
     return p;
 }
 
 
 static void ngx_stdcall
-ngx_lua_axis2c_allocator_free(axutil_allocator_t *allocator, void *ptr)
+ngx_lua_webservice_allocator_free(axutil_allocator_t *allocator, void *ptr)
 {
-    ngx_lua_axis2c_allocator_t *a = (ngx_lua_axis2c_allocator_t *) allocator;
+    ngx_lua_webservice_allocator_t *a
+        = (ngx_lua_webservice_allocator_t *) allocator;
 
     size_t   size;
     u_char  *p;
@@ -580,16 +582,16 @@ ngx_lua_axis2c_allocator_free(axutil_allocator_t *allocator, void *ptr)
 
 
 static axutil_log_t *
-ngx_lua_axis2c_log_create(ngx_http_request_t *r)
+ngx_lua_webservice_log_create(ngx_http_request_t *r)
 {
-    ngx_lua_axis2c_log_t  *log;
+    ngx_lua_webservice_log_t  *log;
 
-    log = ngx_pcalloc(r->pool, sizeof(ngx_lua_axis2c_log_t));
+    log = ngx_pcalloc(r->pool, sizeof(ngx_lua_webservice_log_t));
     if (log == NULL) {
         return NULL;
     }
 
-    log->log.ops = &ngx_lua_axis2c_log_ops;
+    log->log.ops = &ngx_lua_webservice_log_ops;
     log->log.level = AXIS2_LOG_LEVEL_TRACE;
     log->log.enabled = 1;
     log->r = r;
@@ -599,16 +601,16 @@ ngx_lua_axis2c_log_create(ngx_http_request_t *r)
 
 
 static void ngx_stdcall
-ngx_lua_axis2c_log_free(axutil_allocator_t *allocator, axutil_log_t *log)
+ngx_lua_webservice_log_free(axutil_allocator_t *allocator, axutil_log_t *log)
 {
 }
 
 
 static void ngx_stdcall
-ngx_lua_axis2c_log_write(axutil_log_t *log, const axis2_char_t *buffer,
+ngx_lua_webservice_log_write(axutil_log_t *log, const axis2_char_t *buffer,
     axutil_log_levels_t level, const axis2_char_t *file, const int line)
 {
-    ngx_lua_axis2c_log_t *l = (ngx_lua_axis2c_log_t *) log;
+    ngx_lua_webservice_log_t *l = (ngx_lua_webservice_log_t *) log;
 
     /* TODO */
 

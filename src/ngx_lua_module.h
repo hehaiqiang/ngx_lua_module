@@ -135,7 +135,6 @@ ngx_int_t ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data);
 int ngx_lua_http(lua_State *l);
 
 void ngx_lua_api_init(lua_State *l);
-void ngx_lua_axis2c_api_init(lua_State *l);
 void ngx_lua_dbd_api_init(lua_State *l);
 void ngx_lua_file_api_init(lua_State *l);
 void ngx_lua_logger_api_init(lua_State *l);
@@ -145,6 +144,7 @@ void ngx_lua_session_api_init(lua_State *l);
 void ngx_lua_smtp_api_init(lua_State *l);
 void ngx_lua_socket_api_init(lua_State *l);
 void ngx_lua_variable_api_init(lua_State *l);
+void ngx_lua_webservice_api_init(lua_State *l);
 
 
 extern ngx_module_t  ngx_lua_module;

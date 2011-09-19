@@ -79,7 +79,6 @@ ngx_lua_api_init(lua_State *l)
         lua_setfield(l, -2, ngx_lua_methods[n].name);
     }
 
-    ngx_lua_axis2c_api_init(l);
     ngx_lua_dbd_api_init(l);
     ngx_lua_file_api_init(l);
     ngx_lua_logger_api_init(l);
@@ -89,6 +88,7 @@ ngx_lua_api_init(lua_State *l)
     ngx_lua_smtp_api_init(l);
     ngx_lua_socket_api_init(l);
     ngx_lua_variable_api_init(l);
+    ngx_lua_webservice_api_init(l);
 
     lua_setglobal(l, "nginx");
 }

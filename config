@@ -28,7 +28,6 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/api/ngx_lua_core_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_axis2c_api.c \
 	$ngx_addon_dir/src/api/ngx_lua_database_api.c \
 	$ngx_addon_dir/src/api/ngx_lua_file_api.c \
 	$ngx_addon_dir/src/api/ngx_lua_http_api.c \
@@ -38,7 +37,8 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/api/ngx_lua_session_api.c \
 	$ngx_addon_dir/src/api/ngx_lua_smtp_api.c \
 	$ngx_addon_dir/src/api/ngx_lua_socket_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_variable_api.c"
+	$ngx_addon_dir/src/api/ngx_lua_variable_api.c \
+	$ngx_addon_dir/src/api/ngx_lua_webservice_api.c"
 
 USE_MD5=YES
 USE_SHA1=YES
