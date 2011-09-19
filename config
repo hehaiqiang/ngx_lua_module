@@ -40,7 +40,8 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/api/ngx_lua_smtp_api.c \
 	$ngx_addon_dir/src/api/ngx_lua_socket_api.c \
 	$ngx_addon_dir/src/api/ngx_lua_variable_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_webservice_api.c"
+	$ngx_addon_dir/src/api/ngx_lua_webservice_api.c \
+	$ngx_addon_dir/src/api/ngx_lua_xml_api.c"
 
 USE_MD5=YES
 USE_SHA1=YES
