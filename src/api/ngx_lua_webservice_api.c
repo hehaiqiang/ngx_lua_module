@@ -89,7 +89,7 @@ ngx_lua_webservice_parse(lua_State *l)
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "lua webservice parse");
 
-    soap.data = (u_char *) luaL_checklstring(l, -1, &soap.len);
+    soap.data = (u_char *) luaL_checklstring(l, 1, &soap.len);
 
     lua_createtable(l, 2, 2);
 
@@ -172,7 +172,7 @@ ngx_lua_webservice_parse_children(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, axiom_element_t *parent_elem)
 {
     int                              n;
-    char                            *uri, *prefix, *name, *text, *value;
+    char                            *uri, *prefix, *name, *text;
     axiom_node_t                    *node;
     axutil_hash_t                   *attrs;
     axiom_element_t                 *elem;
@@ -227,11 +227,8 @@ ngx_lua_webservice_parse_children(lua_State *l, axutil_env_t *env,
 
                 axutil_hash_this(hi, NULL, NULL, &attr);
 
-                name = axiom_attribute_get_localname(attr, env);
-                value = axiom_attribute_get_value(attr, env);
-
-                lua_pushstring(l, value);
-                lua_setfield(l, -2, name);
+                lua_pushstring(l, axiom_attribute_get_value(attr, env));
+                lua_setfield(l, -2, axiom_attribute_get_localname(attr, env));
 
                 hi = axutil_hash_next(env, hi);
             } while (1);
