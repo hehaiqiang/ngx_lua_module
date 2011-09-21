@@ -136,6 +136,7 @@ int ngx_lua_http(lua_State *l);
 
 void ngx_lua_api_init(lua_State *l);
 
+void ngx_lua_dahua_api_init(lua_State *l);
 void ngx_lua_dbd_api_init(lua_State *l);
 void ngx_lua_file_api_init(lua_State *l);
 void ngx_lua_logger_api_init(lua_State *l);
