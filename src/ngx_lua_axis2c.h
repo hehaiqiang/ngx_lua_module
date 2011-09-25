@@ -30,7 +30,6 @@
 
 
 axutil_allocator_t *ngx_lua_axis2c_allocator_create(ngx_http_request_t *r);
-
 axutil_log_t *ngx_lua_axis2c_log_create(ngx_http_request_t *r);
 
 
