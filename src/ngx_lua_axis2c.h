@@ -10,7 +10,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_http.h>
+#include <ngx_lua.h>
 
 
 #if (NGX_WIN32)
@@ -29,8 +29,8 @@
 #endif
 
 
-axutil_allocator_t *ngx_lua_axis2c_allocator_create(ngx_http_request_t *r);
-axutil_log_t *ngx_lua_axis2c_log_create(ngx_http_request_t *r);
+axutil_allocator_t *ngx_lua_axis2c_allocator_create(ngx_lua_thread_t *thr);
+axutil_log_t *ngx_lua_axis2c_log_create(ngx_lua_thread_t *thr);
 
 
 #endif /* _NGX_LUA_AXIS2C_H_INCLUDED_ */

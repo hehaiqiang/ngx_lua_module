@@ -8,24 +8,28 @@ ngx_addon_name=ngx_lua_module
 #. $ngx_addon_dir/config-luajit
 . $ngx_addon_dir/config-axis2c
 
+EVENT_MODULES="$EVENT_MODULES \
+	ngx_lua_module"
+
 HTTP_INCS="$HTTP_INCS \
 	$ngx_addon_dir/src"
 
 HTTP_MODULES="$HTTP_MODULES \
-	ngx_lua_module"
+	ngx_lua_http_module"
 
 NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
+	$ngx_addon_dir/src/ngx_lua.h \
 	$ngx_addon_dir/src/ngx_lua_axis2c.h \
-	$ngx_addon_dir/src/ngx_lua_module.h \
+	$ngx_addon_dir/src/ngx_lua_http_module.h \
 	$ngx_addon_dir/src/ngx_session.h"
 
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/ngx_lua.c \
 	$ngx_addon_dir/src/ngx_lua_axis2c.c \
 	$ngx_addon_dir/src/ngx_lua_cache.c \
-	$ngx_addon_dir/src/ngx_lua_handler.c \
 	$ngx_addon_dir/src/ngx_lua_module.c \
 	$ngx_addon_dir/src/ngx_lua_parse.c \
+	$ngx_addon_dir/src/ngx_lua_http_module.c \
 	$ngx_addon_dir/src/ngx_session.c"
 
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS \

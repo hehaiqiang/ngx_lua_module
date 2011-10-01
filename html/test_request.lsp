@@ -1,4 +1,4 @@
-<%
+﻿<%
 local print = print
 local nginx = nginx
 local req = nginx.request

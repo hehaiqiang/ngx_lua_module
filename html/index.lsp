@@ -1,21 +1,23 @@
-<%
+﻿<%
 local req = nginx.request
 
---local name = req["name"]
---local name = req.name
-
 if req.method == req.GET then
-  name = req.get["name"]
+  name = req.get['name']
   name = req.get.name
+  name = req['name']
+  name = req.name
 else
-  name = req.post["name"]
+  name = req.post['name']
   name = req.post.name
+  name = req['name']
+  name = req.name
 end
 
-name = name or "world"
+name = name or 'world'
 %>
 <html>
-<head><title>hello, <%=name%>!</title></head>
+<head>
+</head>
 <body>
 hello, <%=name%>!
 <hr>
@@ -23,5 +25,7 @@ hello, <%=name%>!
 <input type="text" name="name"/>
 <input type="submit" value="submit"/>
 </form>
+<hr>
+request time: <%=req.request_time%>ms
 </body>
 </html>

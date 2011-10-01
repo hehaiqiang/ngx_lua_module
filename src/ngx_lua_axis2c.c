@@ -11,13 +11,13 @@
 
 typedef struct {
     axutil_allocator_t     allocator;
-    ngx_http_request_t    *r;
+    ngx_lua_thread_t      *thr;
 } ngx_lua_axis2c_allocator_t;
 
 
 typedef struct {
     axutil_log_t           log;
-    ngx_http_request_t    *r;
+    ngx_lua_thread_t      *thr;
 } ngx_lua_axis2c_log_t;
 
 
@@ -42,14 +42,14 @@ static axutil_log_ops_t  ngx_lua_axis2c_log_ops = {
 
 
 axutil_allocator_t *
-ngx_lua_axis2c_allocator_create(ngx_http_request_t *r)
+ngx_lua_axis2c_allocator_create(ngx_lua_thread_t *thr)
 {
     ngx_lua_axis2c_allocator_t  *a;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0,
                    "lua axis2c allocator create");
 
-    a = ngx_pcalloc(r->pool, sizeof(ngx_lua_axis2c_allocator_t));
+    a = ngx_pcalloc(thr->pool, sizeof(ngx_lua_axis2c_allocator_t));
     if (a == NULL) {
         return NULL;
     }
@@ -57,7 +57,7 @@ ngx_lua_axis2c_allocator_create(ngx_http_request_t *r)
     a->allocator.malloc_fn = ngx_lua_axis2c_allocator_malloc;
     a->allocator.realloc = ngx_lua_axis2c_allocator_realloc;
     a->allocator.free_fn = ngx_lua_axis2c_allocator_free;
-    a->r = r;
+    a->thr = thr;
 
     return &a->allocator;
 }
@@ -68,15 +68,15 @@ ngx_lua_axis2c_allocator_malloc(axutil_allocator_t *allocator, size_t size)
 {
     ngx_lua_axis2c_allocator_t *a = (ngx_lua_axis2c_allocator_t *) allocator;
 
-    u_char              *p;
-    ngx_http_request_t  *r;
+    u_char            *p;
+    ngx_lua_thread_t  *thr;
 
-    r = a->r;
+    thr = a->thr;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0,
                    "lua axis2c allocator malloc");
 
-    p = ngx_palloc(r->pool, size + sizeof(size_t));
+    p = ngx_palloc(thr->pool, size + sizeof(size_t));
     if (p == NULL) {
         return NULL;
     }
@@ -94,13 +94,13 @@ ngx_lua_axis2c_allocator_realloc(axutil_allocator_t *allocator, void *ptr,
 {
     ngx_lua_axis2c_allocator_t *a = (ngx_lua_axis2c_allocator_t *) allocator;
 
-    size_t               osize;
-    u_char              *p;
-    ngx_http_request_t  *r;
+    size_t             osize;
+    u_char            *p;
+    ngx_lua_thread_t  *thr;
 
-    r = a->r;
+    thr = a->thr;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0,
                    "lua axis2c allocator realloc");
 
     p = (u_char *) ptr - sizeof(size_t);
@@ -123,33 +123,32 @@ ngx_lua_axis2c_allocator_free(axutil_allocator_t *allocator, void *ptr)
 {
     ngx_lua_axis2c_allocator_t *a = (ngx_lua_axis2c_allocator_t *) allocator;
 
-    size_t               size;
-    u_char              *p;
-    ngx_http_request_t  *r;
+    size_t             size;
+    u_char            *p;
+    ngx_lua_thread_t  *thr;
 
-    r = a->r;
+    thr = a->thr;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0,
                    "lua axis2c allocator free");
 
     p = (u_char *) ptr - sizeof(size_t);
     size = *((size_t *) p) + sizeof(size_t);
 
-    if (size > r->pool->max) {
-        ngx_pfree(r->pool, p);
+    if (size > thr->pool->max) {
+        ngx_pfree(thr->pool, p);
     }
 }
 
 
 axutil_log_t *
-ngx_lua_axis2c_log_create(ngx_http_request_t *r)
+ngx_lua_axis2c_log_create(ngx_lua_thread_t *thr)
 {
     ngx_lua_axis2c_log_t  *log;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "lua axis2c log create");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua axis2c log create");
 
-    log = ngx_pcalloc(r->pool, sizeof(ngx_lua_axis2c_log_t));
+    log = ngx_pcalloc(thr->pool, sizeof(ngx_lua_axis2c_log_t));
     if (log == NULL) {
         return NULL;
     }
@@ -157,7 +156,7 @@ ngx_lua_axis2c_log_create(ngx_http_request_t *r)
     log->log.ops = &ngx_lua_axis2c_log_ops;
     log->log.level = AXIS2_LOG_LEVEL_TRACE;
     log->log.enabled = 1;
-    log->r = r;
+    log->thr = thr;
 
     return &log->log;
 }
@@ -175,7 +174,30 @@ ngx_lua_axis2c_log_write(axutil_log_t *log, const axis2_char_t *buffer,
 {
     ngx_lua_axis2c_log_t *l = (ngx_lua_axis2c_log_t *) log;
 
-    /* TODO */
+    ngx_uint_t  log_level;
 
-    ngx_log_error(NGX_LOG_ALERT, l->r->connection->log, 0, buffer);
+    switch (level) {
+    case AXIS2_LOG_LEVEL_CRITICAL:
+        log_level = NGX_LOG_CRIT;
+        break;
+    case AXIS2_LOG_LEVEL_ERROR:
+        log_level = NGX_LOG_ERR;
+        break;
+    case AXIS2_LOG_LEVEL_WARNING:
+        log_level = NGX_LOG_WARN;
+        break;
+    case AXIS2_LOG_LEVEL_INFO:
+        log_level = NGX_LOG_INFO;
+        break;
+    case AXIS2_LOG_LEVEL_DEBUG:
+    case AXIS2_LOG_LEVEL_USER:
+    case AXIS2_LOG_LEVEL_TRACE:
+        log_level = NGX_LOG_DEBUG;
+        break;
+    default:
+        log_level = NGX_LOG_ALERT;
+        break;
+    }
+
+    ngx_log_error(log_level, l->thr->log, 0, buffer);
 }

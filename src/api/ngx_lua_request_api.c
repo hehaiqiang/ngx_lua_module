@@ -6,8 +6,10 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_module.h>
+#include <ngx_lua_http_module.h>
 
+
+static ngx_int_t ngx_lua_request_module_init(ngx_cycle_t *cycle);
 
 static int ngx_lua_request_headers_index(lua_State *l);
 static int ngx_lua_request_cookies_index(lua_State *l);
@@ -16,7 +18,7 @@ static int ngx_lua_request_post_index(lua_State *l);
 static int ngx_lua_request_index(lua_State *l);
 
 static ngx_int_t ngx_lua_request_copy_request_body(ngx_http_request_t *r,
-    ngx_lua_ctx_t *ctx);
+    ngx_lua_http_ctx_t *ctx);
 static ngx_int_t ngx_lua_request_get_posted_arg(ngx_str_t *posted,
     ngx_str_t *key, ngx_str_t *value);
 
@@ -47,60 +49,84 @@ static luaL_Reg  ngx_lua_request_methods[] = {
 };
 
 
-void
-ngx_lua_request_api_init(lua_State *l)
+ngx_lua_module_t  ngx_lua_request_module = {
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ngx_lua_request_module_init,
+    NULL,
+    NULL
+};
+
+
+static ngx_int_t
+ngx_lua_request_module_init(ngx_cycle_t *cycle)
 {
-    int  n;
+    int              n;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cycle->log, 0,
+                   "lua request module init");
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
 
     n = sizeof(ngx_lua_request_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_request_methods) / sizeof(luaL_Reg) - 1;
 
-    lua_createtable(l, 4, n);
+    lua_createtable(lcf->l, 4, n);
 
     for (n = 0; ngx_lua_request_consts[n].name != NULL; n++) {
-        lua_pushinteger(l, ngx_lua_request_consts[n].value);
-        lua_setfield(l, -2, ngx_lua_request_consts[n].name);
+        lua_pushinteger(lcf->l, ngx_lua_request_consts[n].value);
+        lua_setfield(lcf->l, -2, ngx_lua_request_consts[n].name);
     }
 
     for (n = 0; ngx_lua_request_methods[n].name != NULL; n++) {
-        lua_pushcfunction(l, ngx_lua_request_methods[n].func);
-        lua_setfield(l, -2, ngx_lua_request_methods[n].name);
+        lua_pushcfunction(lcf->l, ngx_lua_request_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_request_methods[n].name);
     }
 
-    lua_newtable(l);
-    lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_request_headers_index);
-    lua_setfield(l, -2, "__index");
-    lua_setmetatable(l, -2);
-    lua_setfield(l, -2, "headers");
+    lua_newtable(lcf->l);
+    lua_createtable(lcf->l, 0, 1);
+    lua_pushcfunction(lcf->l, ngx_lua_request_headers_index);
+    lua_setfield(lcf->l, -2, "__index");
+    lua_setmetatable(lcf->l, -2);
+    lua_setfield(lcf->l, -2, "headers");
 
-    lua_newtable(l);
-    lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_request_cookies_index);
-    lua_setfield(l, -2, "__index");
-    lua_setmetatable(l, -2);
-    lua_setfield(l, -2, "cookies");
+    lua_newtable(lcf->l);
+    lua_createtable(lcf->l, 0, 1);
+    lua_pushcfunction(lcf->l, ngx_lua_request_cookies_index);
+    lua_setfield(lcf->l, -2, "__index");
+    lua_setmetatable(lcf->l, -2);
+    lua_setfield(lcf->l, -2, "cookies");
 
-    lua_newtable(l);
-    lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_request_get_index);
-    lua_setfield(l, -2, "__index");
-    lua_setmetatable(l, -2);
-    lua_setfield(l, -2, "get");
+    lua_newtable(lcf->l);
+    lua_createtable(lcf->l, 0, 1);
+    lua_pushcfunction(lcf->l, ngx_lua_request_get_index);
+    lua_setfield(lcf->l, -2, "__index");
+    lua_setmetatable(lcf->l, -2);
+    lua_setfield(lcf->l, -2, "get");
 
-    lua_newtable(l);
-    lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_request_post_index);
-    lua_setfield(l, -2, "__index");
-    lua_setmetatable(l, -2);
-    lua_setfield(l, -2, "post");
+    lua_newtable(lcf->l);
+    lua_createtable(lcf->l, 0, 1);
+    lua_pushcfunction(lcf->l, ngx_lua_request_post_index);
+    lua_setfield(lcf->l, -2, "__index");
+    lua_setmetatable(lcf->l, -2);
+    lua_setfield(lcf->l, -2, "post");
 
-    lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_request_index);
-    lua_setfield(l, -2, "__index");
-    lua_setmetatable(l, -2);
+    lua_createtable(lcf->l, 0, 1);
+    lua_pushcfunction(lcf->l, ngx_lua_request_index);
+    lua_setfield(lcf->l, -2, "__index");
+    lua_setmetatable(lcf->l, -2);
 
-    lua_setfield(l, -2, "request");
+    lua_setfield(lcf->l, -2, "request");
+
+    lua_pop(lcf->l, 1);
+
+    return NGX_OK;
 }
 
 
@@ -112,13 +138,16 @@ ngx_lua_request_headers_index(lua_State *l)
     ngx_uint_t           i, n;
     ngx_list_part_t     *part;
     ngx_table_elt_t     *header;
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t    *thr;
+    ngx_lua_http_ctx_t  *ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ctx = thr->ctx;
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
-    part = &r->headers_in.headers.part;
+    part = &ctx->r->headers_in.headers.part;
     header = part->elts;
 
     for (i = 0; /* void */ ; i++) {
@@ -165,13 +194,17 @@ static int
 ngx_lua_request_cookies_index(lua_State *l)
 {
     ngx_str_t            key, value;
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t    *thr;
+    ngx_lua_http_ctx_t  *ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ctx = thr->ctx;
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
-    if (ngx_http_parse_multi_header_lines(&r->headers_in.cookies, &key, &value)
+    if (ngx_http_parse_multi_header_lines(&ctx->r->headers_in.cookies, &key,
+                                          &value)
         == NGX_DECLINED)
     {
         lua_pushnil(l);
@@ -188,13 +221,16 @@ static int
 ngx_lua_request_get_index(lua_State *l)
 {
     ngx_str_t            key, value;
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t    *thr;
+    ngx_lua_http_ctx_t  *ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ctx = thr->ctx;
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
-    if (ngx_http_arg(r, key.data, key.len, &value) == NGX_DECLINED) {
+    if (ngx_http_arg(ctx->r, key.data, key.len, &value) == NGX_DECLINED) {
         lua_pushnil(l);
         return 1;
     }
@@ -210,17 +246,19 @@ ngx_lua_request_post_index(lua_State *l)
 {
     u_char              *dst, *src;
     ngx_str_t            key, value;
-    ngx_lua_ctx_t       *ctx;
+    ngx_lua_thread_t    *thr;
+    ngx_lua_http_ctx_t  *ctx;
     ngx_http_request_t  *r;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ctx = thr->ctx;
+    r = ctx->r;
 
     if (r->request_body == NULL) {
         lua_pushnil(l);
         return 1;
     }
-
-    ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
@@ -298,9 +336,14 @@ ngx_lua_request_index(lua_State *l)
     ngx_str_t            key, value;
     ngx_msec_int_t       ms;
     struct timeval       tv;
+    ngx_lua_thread_t    *thr;
+    ngx_lua_http_ctx_t  *ctx;
     ngx_http_request_t  *r;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ctx = thr->ctx;
+    r = ctx->r;
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
@@ -433,7 +476,8 @@ ngx_lua_request_index(lua_State *l)
 
 
 static ngx_int_t
-ngx_lua_request_copy_request_body(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
+ngx_lua_request_copy_request_body(ngx_http_request_t *r,
+    ngx_lua_http_ctx_t *ctx)
 {
     u_char       *p;
     size_t        len;

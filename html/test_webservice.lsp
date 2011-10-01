@@ -1,91 +1,70 @@
-<%
+﻿<%
 local print = print
 local nginx = nginx
-local axis2c = nginx.axis2c
 local req = nginx.request
-local resp = nginx.response
+local ws = nginx.webservice
 
---resp.content_type = "text/plain"
-
-local body = axis2c.serialize({
+local soap, errstr = ws.serialize({
   body = {
-    name = "getSupportCity",
-    uri = "http://WebXml.com.cn/",
-    attributes = {
-      attr1 = nil,
-      attr2 = nil
+    getSupportCity = {
+      uri = 'http://WebXml.com.cn/',
+      children = {
+        byProvinceName = { text = '广东' },
+      }
     },
-    children = {
-      { name = "byProvinceName" }
-    }
   }
 })
 
-print(body or "")
---do return end
+if not soap then print(errstr) return end
+print(soap, '<hr>')
 
-local res = nginx.http({
+local res, errstr = nginx.http({
   method = "POST",
   url = "www.webxml.com.cn/WebServices/WeatherWebService.asmx",
   headers = {
-    Content_Type = "text/xml; charset=utf-8",
-    Connection = "Keep-Alive",
-    Accept_Language = "zh-cn",
-    Accept = "*/*",
-    User_Agent = "Mozilla/4.0 (compatible; Win32; WinHttp.WinHttpRequest.5)"
+    content_type = "text/xml; charset=utf-8",
+    connection = "Keep-Alive",
+    accept_language = "zh-cn",
+    accept = "*/*",
+    user_agent = "Mozilla/4.0 (compatible; Win32; WinHttp.WinHttpRequest.5)"
   },
-  body = body
+  body = soap
 })
 
-if res.status == nginx.ERROR then
-  print("error")
-  return
+if not res then print(errstr) return end
+
+print('<hr>', res.status, '<hr>')
+--print('<hr>', res.body, '<hr>')
+
+local res = ws.parse(res.body)
+print('', res.prefix, '<br>')
+print('', res.uri, '<hr>')
+
+local header = res.header
+if header then
+  -- TODO
 end
 
-local res_table = axis2c.parse(res.body)
+local body = res.body
+if body then
+  local getSupportCityResponse = body.getSupportCityResponse
+  print('', getSupportCityResponse.prefix, '<br>')
+  print('', getSupportCityResponse.uri, '<hr>')
+
+  local getSupportCityResult = getSupportCityResponse.children.getSupportCityResult
+  print('', getSupportCityResult.prefix, '<br>')
+  print('', getSupportCityResult.uri, '<hr>')
+
+  for i, v in ipairs(getSupportCityResult.children) do
+    print(v.text, '<br>')
+  end
+end
 %>
 <html>
 <head>
 </head>
 <body>
 <hr>
-<%=res.status or ""%>
-<hr>
-<table border="1">
-<% for k,v in pairs(res.headers) do %>
-<tr><td><%=k%></td><td><%=v%></td></tr>
-<% end %>
-</table>
-<hr>
-<%res.body = res.body or ""%>
-<%=#res.body%>
-<hr>
-<%=res.body or ""%>
-<hr>
-<hr>
-<%=#res_table%>
-<br>
-<%=res_table.uri%>
-<br>
-<%=res_table.prefix%>
-<hr>
-<%=res_table.body.name%>
-<br>
-<%=res_table.body.uri%>
-<br>
-<%=res_table.body.prefix%>
-<br>
-<%=#res_table.body.children%>
-<hr>
-<%
-local elem = res_table.body.children[1]
-print(elem.name .. "<br>")
-print(#elem.children .. "<br>")
-for i,v in ipairs(elem.children) do
-  print(v.text .. "<br>")
-end
-%>
-<hr>
-request_time: <%=req.request_time%>ms
+request time: <%=req.request_time%>ms
 </body>
 </html>

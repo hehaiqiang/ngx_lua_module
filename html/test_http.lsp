@@ -1,13 +1,13 @@
-<%
+﻿<%
 local print = print
 local nginx = nginx
 local req = nginx.request
 
 local res = nginx.http({
-  url = "www.nginx.org/index.html"
+  url = 'www.nginx.org/index.html'
 })
 if res.status == nginx.ERROR then
-  print("error")
+  print('error')
   return
 end
 %>
@@ -16,9 +16,9 @@ end
 </head>
 <body>
 <hr>
-<%=res.status or ""%>
+<%=res.status or ''%>
 <hr>
-<table border="1">
+<table border='1'>
 <% for k,v in pairs(res.headers) do %>
 <tr><td><%=k%></td><td><%=v%></td></tr>
 <% end %>
@@ -26,7 +26,7 @@ end
 <hr>
 <%=#res.body%>
 <hr>
-<%=res.body or ""%>
+<%=res.body or ''%>
 <hr>
 request_time: <%=req.request_time%>ms
 </body>

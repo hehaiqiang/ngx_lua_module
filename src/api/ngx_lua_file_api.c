@@ -6,7 +6,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_module.h>
+#include <ngx_lua.h>
 
 
 #define NGX_LUA_FILE  "ngx_lua_file_ctx_t*"
@@ -20,15 +20,17 @@ typedef struct {
     ngx_file_t                     file;
     ngx_buf_t                     *in;
     ngx_buf_t                     *out;
-    ngx_http_request_t            *r;
+    ngx_lua_thread_t              *thr;
     ngx_lua_file_cleanup_ctx_t    *cln_ctx;
 } ngx_lua_file_ctx_t;
 
 
 struct ngx_lua_file_cleanup_ctx_s {
-    ngx_lua_file_ctx_t    *ctx;
+    ngx_lua_file_ctx_t            *ctx;
 };
 
+
+static ngx_int_t ngx_lua_file_module_init(ngx_cycle_t *cycle);
 
 static int ngx_lua_file_open(lua_State *l);
 static int ngx_lua_file_close(lua_State *l);
@@ -77,40 +79,61 @@ static luaL_Reg  ngx_lua_file_methods[] = {
 };
 
 
-void
-ngx_lua_file_api_init(lua_State *l)
+ngx_lua_module_t  ngx_lua_file_module = {
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ngx_lua_file_module_init,
+    NULL,
+    NULL
+};
+
+
+static ngx_int_t
+ngx_lua_file_module_init(ngx_cycle_t *cycle)
 {
-    int  n;
+    int              n;
+    ngx_lua_conf_t  *lcf;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ngx_cycle->log, 0, "lua file api init");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua file module init");
 
-    luaL_newmetatable(l, NGX_LUA_FILE);
-    lua_pushvalue(l, -1);
-    lua_setfield(l, -2, "__index");
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
+
+    luaL_newmetatable(lcf->l, NGX_LUA_FILE);
+    lua_pushvalue(lcf->l, -1);
+    lua_setfield(lcf->l, -2, "__index");
 
     for (n = 0; ngx_lua_file_methods[n].name != NULL; n++) {
-        lua_pushcfunction(l, ngx_lua_file_methods[n].func);
-        lua_setfield(l, -2, ngx_lua_file_methods[n].name);
+        lua_pushcfunction(lcf->l, ngx_lua_file_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_file_methods[n].name);
     }
 
-    lua_pop(l, 1);
+    lua_pop(lcf->l, 1);
 
     n = sizeof(ngx_lua_file_consts) / sizeof(ngx_lua_const_t) - 1;
     n += 2;
 
-    lua_createtable(l, 0, n);
+    lua_createtable(lcf->l, 0, n);
 
     for (n = 0; ngx_lua_file_consts[n].name != NULL; n++) {
-        lua_pushinteger(l, ngx_lua_file_consts[n].value);
-        lua_setfield(l, -2, ngx_lua_file_consts[n].name);
+        lua_pushinteger(lcf->l, ngx_lua_file_consts[n].value);
+        lua_setfield(lcf->l, -2, ngx_lua_file_consts[n].name);
     }
 
-    lua_pushcfunction(l, ngx_lua_file_open);
-    lua_setfield(l, -2, "open");
-    lua_pushcfunction(l, ngx_lua_file_info);
-    lua_setfield(l, -2, "attributes");
+    lua_pushcfunction(lcf->l, ngx_lua_file_open);
+    lua_setfield(lcf->l, -2, "open");
+    lua_pushcfunction(lcf->l, ngx_lua_file_info);
+    lua_setfield(lcf->l, -2, "attributes");
 
-    lua_setfield(l, -2, "file");
+    lua_setfield(lcf->l, -2, "file");
+
+    lua_pop(lcf->l, 1);
+
+    return NGX_OK;
 }
 
 
@@ -122,14 +145,14 @@ ngx_lua_file_open(lua_State *l)
     u_char                       *name;
     ngx_pool_t                   *pool;
     ngx_file_t                   *file;
-    ngx_http_cleanup_t           *cln;
-    ngx_http_request_t           *r;
+    ngx_lua_thread_t             *thr;
+    ngx_pool_cleanup_t           *cln;
     ngx_lua_file_ctx_t          **ctx;
     ngx_lua_file_cleanup_ctx_t   *cln_ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file open");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua file open");
 
     name = (u_char *) luaL_checkstring(l, 1);
     mode = (int) luaL_optnumber(l, 2, NGX_FILE_RDWR);
@@ -165,7 +188,7 @@ ngx_lua_file_open(lua_State *l)
 
     (*ctx)->pool = pool;
 
-    cln_ctx = ngx_pcalloc(r->pool, sizeof(ngx_lua_file_cleanup_ctx_t));
+    cln_ctx = ngx_pcalloc(thr->pool, sizeof(ngx_lua_file_cleanup_ctx_t));
     if (cln_ctx == NULL) {
         errstr = "ngx_pcalloc() failed";
         goto error;
@@ -173,23 +196,23 @@ ngx_lua_file_open(lua_State *l)
 
     cln_ctx->ctx = (*ctx);
 
-    cln = ngx_http_cleanup_add(r, 0);
+    cln = ngx_pool_cleanup_add(thr->pool, 0);
     if (cln == NULL) {
-        errstr = "ngx_http_cleanup_add() failed";
+        errstr = "ngx_pool_cleanup_add() failed";
         goto error;
     }
 
     cln->handler = ngx_lua_file_cleanup;
     cln->data = cln_ctx;
 
-    (*ctx)->r = r;
+    (*ctx)->thr = thr;
     (*ctx)->cln_ctx = cln_ctx;
 
     file = &(*ctx)->file;
 
     file->fd = ngx_open_file(name, mode, create, access);
     if (file->fd == NGX_INVALID_FILE) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
+        ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
                       ngx_open_file_n " \"%s\" failed", name);
         errstr = ngx_open_file_n " failed";
         goto error;
@@ -212,18 +235,17 @@ error:
 static int
 ngx_lua_file_close(lua_State *l)
 {
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t    *thr;
     ngx_lua_file_ctx_t  *ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file close");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua file close");
 
     ctx = ngx_lua_file(l);
 
     if (ctx->file.fd != NGX_INVALID_FILE) {
         ngx_close_file(ctx->file.fd);
-
         ctx->file.fd = NGX_INVALID_FILE;
     }
 
@@ -241,12 +263,12 @@ ngx_lua_file_read(lua_State *l)
     ngx_buf_t           *b;
     ngx_file_t          *file;
     ngx_file_info_t      fi;
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t    *thr;
     ngx_lua_file_ctx_t  *ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file read");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua file read");
 
     ctx = ngx_lua_file(l);
 
@@ -260,7 +282,7 @@ ngx_lua_file_read(lua_State *l)
     ngx_memzero(&fi, sizeof(ngx_file_info_t));
 
     if (ngx_fd_info(file->fd, &fi) == NGX_FILE_ERROR) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
+        ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
                       ngx_fd_info_n " failed");
         errstr = ngx_fd_info_n " failed";
         goto error;
@@ -299,7 +321,7 @@ ngx_lua_file_read(lua_State *l)
     n = ngx_file_aio_read(file, b->last, size, offset, ctx->pool);
 
     if (n == NGX_ERROR) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
+        ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
                       "ngx_file_aio_read() failed");
         errstr = "ngx_file_aio_read() failed";
         goto error;
@@ -336,12 +358,12 @@ ngx_lua_file_write(lua_State *l)
     ngx_str_t            str;
     ngx_buf_t           *b;
     ngx_file_t          *file;
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t    *thr;
     ngx_lua_file_ctx_t  *ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file write");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua file write");
 
     ctx = ngx_lua_file(l);
 
@@ -386,7 +408,7 @@ ngx_lua_file_write(lua_State *l)
     n = ngx_file_aio_write(file, b->pos, str.len, offset, ctx->pool);
 
     if (n == NGX_ERROR) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
+        ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
                       "ngx_file_aio_write() failed");
         errstr = "ngx_file_aio_write() failed";
         goto error;
@@ -412,7 +434,7 @@ ngx_lua_file_write(lua_State *l)
     n = ngx_write_file(file, b->pos, str.len, offset);
 
     if (n == NGX_ERROR) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, ngx_errno,
+        ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
                       "ngx_write_file() failed");
         errstr = "ngx_write_file() failed";
         goto error;
@@ -444,9 +466,9 @@ ngx_lua_file_index(lua_State *l)
     ngx_http_request_t  *r;
     ngx_lua_file_ctx_t  *ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file index");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, r->connection->log, 0, "lua file index");
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
@@ -496,13 +518,12 @@ ngx_lua_file_gc(lua_State *l)
 {
     ngx_lua_file_ctx_t  *ctx;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ngx_cycle->log, 0, "lua file gc");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ngx_cycle->log, 0, "lua file gc");
 
     ctx = ngx_lua_file(l);
 
     if (ctx->file.fd != NGX_INVALID_FILE) {
         ngx_close_file(ctx->file.fd);
-
         ctx->file.fd = NGX_INVALID_FILE;
     }
 
@@ -515,11 +536,11 @@ ngx_lua_file_gc(lua_State *l)
 static int
 ngx_lua_file_info(lua_State *l)
 {
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua file info");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua file info");
 
     /* TODO */
 
@@ -545,11 +566,10 @@ static void
 ngx_lua_file_read_handler(ngx_event_t *ev)
 {
     ngx_int_t            rc;
-    ngx_lua_ctx_t       *lua_ctx;
     ngx_event_aio_t     *aio;
     ngx_lua_file_ctx_t  *ctx;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0, "lua file read handler");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua file read handler");
 
     aio = ev->data;
     ctx = aio->data;
@@ -558,22 +578,20 @@ ngx_lua_file_read_handler(ngx_event_t *ev)
 
     /* TODO: error handling */
 
-    if (ctx->r == NULL) {
+    if (ctx->thr == NULL) {
         return;
     }
 
-    lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
-
-    lua_pushlstring(lua_ctx->l, (char *) ctx->in->pos, ev->available);
+    lua_pushlstring(ctx->thr->l, (char *) ctx->in->pos, ev->available);
 
     ctx->file.offset += ev->available;
 
-    rc = ngx_lua_thread_run(ctx->r, lua_ctx, 1);
+    rc = ngx_lua_thread_run(ctx->thr, 1);
     if (rc == NGX_AGAIN) {
         return;
     }
 
-    ngx_lua_finalize(ctx->r, rc);
+    ngx_lua_finalize(ctx->thr, rc);
 }
 
 
@@ -583,11 +601,10 @@ static void
 ngx_lua_file_write_handler(ngx_event_t *ev)
 {
     ngx_int_t            rc;
-    ngx_lua_ctx_t       *lua_ctx;
     ngx_event_aio_t     *aio;
     ngx_lua_file_ctx_t  *ctx;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0, "lua file write handler");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua file write handler");
 
     aio = ev->data;
     ctx = aio->data;
@@ -596,22 +613,20 @@ ngx_lua_file_write_handler(ngx_event_t *ev)
 
     /* TODO: error handling */
 
-    if (ctx->r == NULL) {
+    if (ctx->thr == NULL) {
         return;
     }
 
-    lua_ctx = ngx_http_get_module_ctx(ctx->r, ngx_lua_module);
-
-    lua_pushnumber(lua_ctx->l, ev->available);
+    lua_pushnumber(ctx->thr->l, ev->available);
 
     ctx->file.offset += ev->available;
 
-    rc = ngx_lua_thread_run(ctx->r, lua_ctx, 1);
+    rc = ngx_lua_thread_run(ctx->thr, 1);
     if (rc == NGX_AGAIN) {
         return;
     }
 
-    ngx_lua_finalize(ctx->r, rc);
+    ngx_lua_finalize(ctx->thr, rc);
 }
 
 #endif
@@ -623,7 +638,7 @@ ngx_lua_file_cleanup(void *data)
     ngx_lua_file_cleanup_ctx_t *cln_ctx = data;
 
     if (cln_ctx->ctx != NULL) {
-        cln_ctx->ctx->r = NULL;
+        cln_ctx->ctx->thr = NULL;
         cln_ctx->ctx->cln_ctx = NULL;
     }
 }

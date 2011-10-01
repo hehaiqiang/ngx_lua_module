@@ -6,7 +6,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_module.h>
+#include <ngx_lua.h>
 
 
 #define NGX_LUA_FUNCTION_START   "return function() local print = print "
@@ -20,7 +20,7 @@
 
 
 ngx_int_t
-ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
+ngx_lua_parse(ngx_lua_thread_t *thr)
 {
     u_char      *p, ch, *out, *html_start, *lua_start, *lua_end;
     ngx_uint_t   backslash, dquoted, squoted;
@@ -37,6 +37,8 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
         sw_error
     } state;
 
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua parse");
+
     state = sw_start;
 
     html_start = NULL;
@@ -45,12 +47,12 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     dquoted = 0;
     squoted = 0;
 
-    out = ngx_cpymem(ctx->buf->last, NGX_LUA_FUNCTION_START,
+    out = ngx_cpymem(thr->buf->last, NGX_LUA_FUNCTION_START,
                      sizeof(NGX_LUA_FUNCTION_START) - 1);
 
     /* TODO */
 
-    for (p = ctx->lsp->pos; p < ctx->lsp->last; p++) {
+    for (p = thr->lsp->pos; p < thr->lsp->last; p++) {
         ch = *p;
 
         switch (state) {
@@ -292,7 +294,7 @@ ngx_lua_parse(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
     out = ngx_cpymem(out, NGX_LUA_FUNCTION_END,
                      sizeof(NGX_LUA_FUNCTION_END) - 1);
 
-    ctx->buf->last = out;
+    thr->buf->last = out;
 
     return NGX_OK;
 }

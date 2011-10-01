@@ -6,8 +6,10 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_module.h>
+#include <ngx_lua.h>
 
+
+static ngx_int_t ngx_lua_logger_module_init(ngx_cycle_t *cycle);
 
 static int ngx_lua_logger_error(lua_State *l);
 static int ngx_lua_logger_debug(lua_State *l);
@@ -43,43 +45,66 @@ static luaL_Reg  ngx_lua_logger_methods[] = {
 };
 
 
-void
-ngx_lua_logger_api_init(lua_State *l)
+ngx_lua_module_t  ngx_lua_logger_module = {
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ngx_lua_logger_module_init,
+    NULL,
+    NULL
+};
+
+
+static ngx_int_t
+ngx_lua_logger_module_init(ngx_cycle_t *cycle)
 {
-    int  n;
+    int              n;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua logger module init");
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
 
     n = sizeof(ngx_lua_logger_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_logger_methods) / sizeof(luaL_Reg) - 1;
 
-    lua_createtable(l, 0, n);
+    lua_createtable(lcf->l, 0, n);
 
     for (n = 0; ngx_lua_logger_consts[n].name != NULL; n++) {
-        lua_pushinteger(l, ngx_lua_logger_consts[n].value);
-        lua_setfield(l, -2, ngx_lua_logger_consts[n].name);
+        lua_pushinteger(lcf->l, ngx_lua_logger_consts[n].value);
+        lua_setfield(lcf->l, -2, ngx_lua_logger_consts[n].name);
     }
 
     for (n = 0; ngx_lua_logger_methods[n].name != NULL; n++) {
-        lua_pushcfunction(l, ngx_lua_logger_methods[n].func);
-        lua_setfield(l, -2, ngx_lua_logger_methods[n].name);
+        lua_pushcfunction(lcf->l, ngx_lua_logger_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_logger_methods[n].name);
     }
 
-    lua_setfield(l, -2, "logger");
+    lua_setfield(lcf->l, -2, "logger");
+
+    lua_pop(lcf->l, 1);
+
+    return NGX_OK;
 }
 
 
 static int
 ngx_lua_logger_error(lua_State *l)
 {
-    char                *str;
-    ngx_uint_t           level;
-    ngx_http_request_t  *r;
+    char              *str;
+    ngx_uint_t         level;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
     level = luaL_checkint(l, 1);
     str = (char *) luaL_checkstring(l, 2);
 
-    ngx_log_error(level, r->connection->log, 0, str);
+    ngx_log_error(level, thr->log, 0, str);
 
     return 0;
 }
@@ -88,16 +113,16 @@ ngx_lua_logger_error(lua_State *l)
 static int
 ngx_lua_logger_debug(lua_State *l)
 {
-    char                *str;
-    ngx_uint_t           level;
-    ngx_http_request_t  *r;
+    char              *str;
+    ngx_uint_t         level;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
     level = luaL_checkint(l, 1);
     str = (char *) luaL_checkstring(l, 2);
 
-    ngx_log_debug0(level, r->connection->log, 0, str);
+    ngx_log_debug0(level, thr->log, 0, str);
 
     return 0;
 }

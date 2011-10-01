@@ -6,8 +6,10 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_module.h>
+#include <ngx_lua_http_module.h>
 
+
+static ngx_int_t ngx_lua_response_module_init(ngx_cycle_t *cycle);
 
 static int ngx_lua_response_write(lua_State *l);
 static int ngx_lua_response_headers_newindex(lua_State *l);
@@ -65,59 +67,83 @@ static luaL_Reg  ngx_lua_response_methods[] = {
 };
 
 
-void
-ngx_lua_response_api_init(lua_State *l)
+ngx_lua_module_t  ngx_lua_response_module = {
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ngx_lua_response_module_init,
+    NULL,
+    NULL
+};
+
+
+static ngx_int_t
+ngx_lua_response_module_init(ngx_cycle_t *cycle)
 {
-    int  n;
+    int              n;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0,
+                   "lua response module init");
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
 
     n = sizeof(ngx_lua_response_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_response_methods) / sizeof(luaL_Reg) - 1;
 
-    lua_createtable(l, 2, n);
+    lua_createtable(lcf->l, 2, n);
 
     for (n = 0; ngx_lua_response_consts[n].name != NULL; n++) {
-        lua_pushinteger(l, ngx_lua_response_consts[n].value);
-        lua_setfield(l, -2, ngx_lua_response_consts[n].name);
+        lua_pushinteger(lcf->l, ngx_lua_response_consts[n].value);
+        lua_setfield(lcf->l, -2, ngx_lua_response_consts[n].name);
     }
 
     for (n = 0; ngx_lua_response_methods[n].name != NULL; n++) {
-        lua_pushcfunction(l, ngx_lua_response_methods[n].func);
-        lua_setfield(l, -2, ngx_lua_response_methods[n].name);
+        lua_pushcfunction(lcf->l, ngx_lua_response_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_response_methods[n].name);
     }
 
-    lua_newtable(l);
-    lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_response_headers_newindex);
-    lua_setfield(l, -2, "__newindex");
-    lua_setmetatable(l, -2);
-    lua_setfield(l, -2, "headers");
+    lua_newtable(lcf->l);
+    lua_createtable(lcf->l, 0, 1);
+    lua_pushcfunction(lcf->l, ngx_lua_response_headers_newindex);
+    lua_setfield(lcf->l, -2, "__newindex");
+    lua_setmetatable(lcf->l, -2);
+    lua_setfield(lcf->l, -2, "headers");
 
-    lua_newtable(l);
-    lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_response_cookies_newindex);
-    lua_setfield(l, -2, "__newindex");
-    lua_setmetatable(l, -2);
-    lua_setfield(l, -2, "cookies");
+    lua_newtable(lcf->l);
+    lua_createtable(lcf->l, 0, 1);
+    lua_pushcfunction(lcf->l, ngx_lua_response_cookies_newindex);
+    lua_setfield(lcf->l, -2, "__newindex");
+    lua_setmetatable(lcf->l, -2);
+    lua_setfield(lcf->l, -2, "cookies");
 
-    lua_createtable(l, 0, 1);
-    lua_pushcfunction(l, ngx_lua_response_newindex);
-    lua_setfield(l, -2, "__newindex");
-    lua_setmetatable(l, -2);
+    lua_createtable(lcf->l, 0, 1);
+    lua_pushcfunction(lcf->l, ngx_lua_response_newindex);
+    lua_setfield(lcf->l, -2, "__newindex");
+    lua_setmetatable(lcf->l, -2);
 
-    lua_setfield(l, -2, "response");
+    lua_setfield(lcf->l, -2, "response");
+
+    lua_pop(lcf->l, 1);
+
+    return NGX_OK;
 }
 
 
 static int
 ngx_lua_response_write(lua_State *l)
 {
-    ngx_str_t            str;
-    ngx_http_request_t  *r;
+    ngx_str_t          str;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
-    ngx_lua_output(r, str.data, str.len);
+    ngx_lua_output(thr, str.data, str.len);
 
     return 0;
 }
@@ -143,25 +169,28 @@ static int
 ngx_lua_response_newindex(lua_State *l)
 {
     ngx_str_t            key, value, str;
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t    *thr;
+    ngx_lua_http_ctx_t  *ctx;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
     key.data = (u_char *) luaL_checklstring(l, 2, &key.len);
     value.data = (u_char *) luaL_checklstring(l, 3, &value.len);
 
     str.len = value.len;
-    str.data = ngx_pstrdup(r->pool, &value);
+    str.data = ngx_pstrdup(thr->pool, &value);
 
     /* TODO: r->headers_out.status */
+
+    ctx = thr->ctx;
 
     switch (key.len) {
 
     case 12:
 
         if (ngx_strncmp(key.data, "content_type", 12) == 0) {
-            r->headers_out.content_type.len = str.len;
-            r->headers_out.content_type.data = str.data;
+            ctx->r->headers_out.content_type.len = str.len;
+            ctx->r->headers_out.content_type.data = str.data;
         }
 
         break;

@@ -6,9 +6,10 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_module.h>
 #include <ngx_lua_axis2c.h>
 
+
+static ngx_int_t ngx_lua_xml_module_init(ngx_cycle_t *cycle);
 
 static int ngx_lua_xml_parse(lua_State *l);
 static void ngx_lua_xml_parse_children(lua_State *l, axutil_env_t *env,
@@ -33,31 +34,52 @@ static luaL_Reg  ngx_lua_xml_methods[] = {
 };
 
 
-void
-ngx_lua_xml_api_init(lua_State *l)
-{
-    int  n;
+ngx_lua_module_t  ngx_lua_xml_module = {
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ngx_lua_xml_module_init,
+    NULL,
+    NULL
+};
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ngx_cycle->log, 0, "lua xml api init");
+
+static ngx_int_t
+ngx_lua_xml_module_init(ngx_cycle_t *cycle)
+{
+    int              n;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua xml module init");
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
 
     n = sizeof(ngx_lua_xml_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_xml_methods) / sizeof(luaL_Reg) - 1;
 
-    lua_createtable(l, 0, n);
+    lua_createtable(lcf->l, 0, n);
 
     for (n = 0; ngx_lua_xml_consts[n].name != NULL; n++) {
-        lua_pushinteger(l, ngx_lua_xml_consts[n].value);
-        lua_setfield(l, -2, ngx_lua_xml_consts[n].name);
+        lua_pushinteger(lcf->l, ngx_lua_xml_consts[n].value);
+        lua_setfield(lcf->l, -2, ngx_lua_xml_consts[n].name);
     }
 
     for (n = 0; ngx_lua_xml_methods[n].name != NULL; n++) {
-        lua_pushcfunction(l, ngx_lua_xml_methods[n].func);
-        lua_setfield(l, -2, ngx_lua_xml_methods[n].name);
+        lua_pushcfunction(lcf->l, ngx_lua_xml_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_xml_methods[n].name);
     }
 
-    lua_setfield(l, -2, "xml");
+    lua_setfield(lcf->l, -2, "xml");
+
+    lua_pop(lcf->l, 1);
 
     axutil_error_init();
+
+    return NGX_OK;
 }
 
 
@@ -71,26 +93,26 @@ ngx_lua_xml_parse(lua_State *l)
     axutil_log_t           *log;
     axutil_error_t         *error;
     axiom_element_t        *elem;
+    ngx_lua_thread_t       *thr;
     axiom_namespace_t      *ns;
     axiom_soap_body_t      *body;
     axutil_allocator_t     *a;
-    ngx_http_request_t     *r;
     axiom_xml_reader_t     *reader;
     axiom_soap_header_t    *header;
     axiom_stax_builder_t   *builder;
     axiom_soap_builder_t   *soap_builder;
     axiom_soap_envelope_t  *envelope;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua xml parse");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua xml parse");
 
     soap.data = (u_char *) luaL_checklstring(l, -1, &soap.len);
 
     lua_createtable(l, 2, 2);
 
-    a = ngx_lua_axis2c_allocator_create(r);
-    log = ngx_lua_axis2c_log_create(r);
+    a = ngx_lua_axis2c_allocator_create(thr);
+    log = ngx_lua_axis2c_log_create(thr);
     error = axutil_error_create(a);
     env = axutil_env_create_with_error_log(a, error, log);
 
@@ -172,10 +194,15 @@ ngx_lua_xml_parse_children(lua_State *l, axutil_env_t *env,
     axiom_node_t                    *node;
     axutil_hash_t                   *attrs;
     axiom_element_t                 *elem;
+    ngx_lua_thread_t                *thr;
     axiom_attribute_t               *attr;
     axiom_namespace_t               *ns;
     axutil_hash_index_t             *hi;
     axiom_child_element_iterator_t  *it;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua xml parse children");
 
     it = axiom_element_get_child_elements(parent_elem, env, parent);
     if (it == NULL) {
@@ -267,18 +294,17 @@ ngx_lua_xml_serialize(lua_State *l)
     axutil_log_t           *log;
     axutil_error_t         *error;
     axiom_output_t         *output;
+    ngx_lua_thread_t       *thr;
     axiom_namespace_t      *ns;
     axiom_soap_body_t      *body;
     axutil_allocator_t     *a;
-    ngx_http_request_t     *r;
     axiom_xml_writer_t     *writer;
     axiom_soap_header_t    *header;
     axiom_soap_envelope_t  *envelope;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "lua xml serialize");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua xml serialize");
 
     top = lua_gettop(l);
 
@@ -286,8 +312,8 @@ ngx_lua_xml_serialize(lua_State *l)
         return luaL_error(l, "invalid argument, must be a table");
     }
 
-    a = ngx_lua_axis2c_allocator_create(r);
-    log = ngx_lua_axis2c_log_create(r);
+    a = ngx_lua_axis2c_allocator_create(thr);
+    log = ngx_lua_axis2c_log_create(thr);
     error = axutil_error_create(a);
     env = axutil_env_create_with_error_log(a, error, log);
 
@@ -343,8 +369,13 @@ static void
 ngx_lua_xml_serialize_tables(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent)
 {
-    int    type, n, i, index;
-    char  *name;
+    int                type, n, i, index;
+    char              *name;
+    ngx_lua_thread_t  *thr;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua xml serialize tables");
 
     lua_pushnil(l);
 
@@ -399,8 +430,13 @@ ngx_lua_xml_serialize_table(lua_State *l, axutil_env_t *env,
     char               *uri, *prefix, *text, *value;
     axiom_node_t       *node;
     axiom_element_t    *elem;
+    ngx_lua_thread_t   *thr;
     axiom_namespace_t  *ns;
     axiom_attribute_t  *attr;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua xml serialize table");
 
     top = lua_gettop(l);
 

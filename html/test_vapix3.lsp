@@ -1,42 +1,39 @@
-<%
+﻿<%
 local print = print
 local nginx = nginx
+local file = nginx.file
 local req = nginx.request
 
-local res = nginx.http({
-  version = "1.0",
-  url = "192.168.1.200:80/mjpg/1/video.mjpg",
+--192.168.1.200:80/mjpg/1/video.mjpg
+
+local res, errstr = nginx.http({
+  url = "192.168.1.200/axis-cgi/jpg/image.cgi?resolution=704x576&camera=1&compression=30",
   headers = {
-    Authorization = "Basic " .. nginx.encode_base64("root:pass"),
-    Connection = "close",
-    Cache_Control = "no-cache"
+    authorization = "Basic " .. nginx.encode_base64("root:pass"),
+    connection = "Keep-Alive"
   }
 })
-if res.status == nginx.ERROR then
-  print("error")
-  return
+
+if not res then print(errstr) return end
+
+print('<hr>', res.status, '<hr>')
+--print('<hr>', res.body, '<hr>')
+
+print('<table border="1">')
+for k,v in pairs(res.headers) do
+  print('<tr><td>', k, '</td><td>', v, '</td></tr>')
 end
+print('</table>')
+
+local f = file.open("c:/temp/test.jpg", file.WRONLY, file.TRUNCATE, file.DEFAULT_ACCESS)
+f:write(res.body)
+f:close()
 %>
 <html>
 <head>
 </head>
 <body>
 <hr>
-<%=res.status or ""%>
-<hr>
-<table border="1">
-<% for k,v in pairs(res.headers) do %>
-<tr><td><%=k%></td><td><%=v%></td></tr>
-<% end %>
-</table>
-<hr>
-<%res.body = res.body or ""%>
-<%=#res.body%>
-<hr>
-<!--
-<%=res.body or ""%>
--->
-<hr>
-request_time: <%=req.request_time%>ms
+request time: <%=req.request_time%>ms
 </body>
 </html>

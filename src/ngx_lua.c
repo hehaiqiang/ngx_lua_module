@@ -6,58 +6,59 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_module.h>
+#include <ngx_lua.h>
 
 
-#define NGX_LUA_KEY_REQ   "ngx_lua_key_req"
+#define NGX_LUA_KEY_THR   "ngx_lua_key_thr"
 #define NGX_LUA_KEY_REF   "ngx_lua_key_ref"
 #define NGX_LUA_KEY_CODE  "ngx_lua_key_code"
 
 
-static void ngx_lua_set_path(lua_State *l, char *key, ngx_str_t *value);
+static void ngx_lua_handler(ngx_lua_thread_t *thr);
+static void ngx_lua_aio_handler(ngx_event_t *ev);
+static const char *ngx_lua_reader(lua_State *l, void *data, size_t *size);
+static int ngx_lua_writer(lua_State *l, const void *buf, size_t size,
+    void *data);
+
 static int ngx_lua_panic(lua_State *l);
+static void ngx_lua_set_path(lua_State *l, char *key, ngx_str_t *value);
 
 
 ngx_int_t
-ngx_lua_create(ngx_conf_t *cf, ngx_lua_main_conf_t *lmcf)
+ngx_lua_create(ngx_cycle_t *cycle, ngx_lua_conf_t *lcf)
 {
-    lua_State  *l;
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua create");
 
-    l = luaL_newstate();
-    if (l == NULL) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "luaL_newstate() failed");
+    lcf->l = luaL_newstate();
+    if (lcf->l == NULL) {
+        ngx_log_error(NGX_LOG_EMERG, cycle->log, 0, "luaL_newstate() failed");
         return NGX_ERROR;
     }
 
-    lua_atpanic(l, ngx_lua_panic);
+    lua_atpanic(lcf->l, ngx_lua_panic);
+    luaL_openlibs(lcf->l);
 
-    luaL_openlibs(l);
+    lua_getglobal(lcf->l, "package");
 
-    lua_getglobal(l, "package");
-
-    if (!lua_istable(l, -1)) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "the table \"package\" not found");
-        lua_close(l);
+    if (!lua_istable(lcf->l, -1)) {
+        ngx_log_error(NGX_LOG_EMERG, cycle->log, 0,
+                      "the table \"package\" not found");
+        lua_close(lcf->l);
         return NGX_ERROR;
     }
 
-    if (lmcf->path.len > 0) {
-        ngx_lua_set_path(l, "path", &lmcf->path);
+    if (lcf->path.len > 0) {
+        ngx_lua_set_path(lcf->l, "path", &lcf->path);
     }
 
-    if (lmcf->cpath.len > 0) {
-        ngx_lua_set_path(l, "cpath", &lmcf->cpath);
+    if (lcf->cpath.len > 0) {
+        ngx_lua_set_path(lcf->l, "cpath", &lcf->cpath);
     }
 
-    lua_remove(l, -1);
+    lua_pop(lcf->l, 1);
 
-    ngx_lua_api_init(l);
-
-    lua_newtable(l);
-    lua_setfield(l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
-
-    lmcf->l = l;
+    lua_newtable(lcf->l);
+    lua_setfield(lcf->l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
 
     return NGX_OK;
 }
@@ -66,136 +67,131 @@ ngx_lua_create(ngx_conf_t *cf, ngx_lua_main_conf_t *lmcf)
 void
 ngx_lua_destroy(void *data)
 {
-    lua_State *l = data;
+    ngx_lua_conf_t *lcf = data;
 
-    lua_close(l);
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ngx_cycle->log, 0, "lua destroy");
+
+    lua_close(lcf->l);
 }
 
 
 ngx_int_t
-ngx_lua_thread_create(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
+ngx_lua_thread_create(ngx_lua_thread_t *thr)
 {
-    int                   top;
-    lua_State            *l;
-    ngx_lua_main_conf_t  *lmcf;
+    int              top;
+    ngx_lua_conf_t  *lcf;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "lua thread create");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua thread create");
 
-    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx, ngx_lua_module);
 
-    top = lua_gettop(lmcf->l);
-    lua_getfield(lmcf->l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
+    top = lua_gettop(lcf->l);
 
-    l = lua_newthread(lmcf->l);
-    if (l == NULL) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
-                      "lua_newthread() failed");
-        lua_pop(lmcf->l, 1);
+    lua_getfield(lcf->l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
+
+    thr->l = lua_newthread(lcf->l);
+    if (thr->l == NULL) {
+        ngx_log_error(NGX_LOG_ALERT, thr->log, 0, "lua_newthread() failed");
+        lua_pop(lcf->l, 1);
         return NGX_ERROR;
     }
 
-    lua_newtable(l);
-    lua_createtable(l, 0, 1);
-    lua_pushvalue(l, LUA_GLOBALSINDEX);
-    lua_setfield(l, -2, "__index");
-    lua_setmetatable(l, -2);
-    lua_replace(l, LUA_GLOBALSINDEX);
+    lua_newtable(thr->l);
+    lua_createtable(thr->l, 0, 1);
+    lua_pushvalue(thr->l, LUA_GLOBALSINDEX);
+    lua_setfield(thr->l, -2, "__index");
+    lua_setmetatable(thr->l, -2);
+    lua_replace(thr->l, LUA_GLOBALSINDEX);
 
-    ctx->ref = luaL_ref(lmcf->l, -2);
-    if (ctx->ref == LUA_NOREF) {
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
+    thr->ref = luaL_ref(lcf->l, -2);
+    if (thr->ref == LUA_NOREF) {
+        ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
                       "luaL_ref() return LUA_NOREF");
-        lua_settop(lmcf->l, top);
+        lua_settop(lcf->l, top);
         return NGX_ERROR;
     }
 
-    lua_pop(lmcf->l, 1);
+    lua_pop(lcf->l, 1);
 
-    lua_xmove(lmcf->l, l, 1);
+    lua_xmove(lcf->l, thr->l, 1);
 
-    lua_pushvalue(l, LUA_GLOBALSINDEX);
-    lua_setfenv(l, -2);
+    lua_pushvalue(thr->l, LUA_GLOBALSINDEX);
+    lua_setfenv(thr->l, -2);
 
-    lua_pushvalue(l, -1);
-    lua_setglobal(l, NGX_LUA_KEY_CODE);
+    lua_pushvalue(thr->l, -1);
+    lua_setglobal(thr->l, NGX_LUA_KEY_CODE);
 
-    lua_pushlightuserdata(l, r);
-    lua_setglobal(l, NGX_LUA_KEY_REQ);
-
-    ctx->l = l;
+    lua_pushlightuserdata(thr->l, thr);
+    lua_setglobal(thr->l, NGX_LUA_KEY_THR);
 
     return NGX_OK;
 }
 
 
 void
-ngx_lua_thread_destroy(ngx_http_request_t *r, ngx_lua_ctx_t *ctx)
+ngx_lua_thread_destroy(ngx_lua_thread_t *thr)
 {
-    lua_State            *l;
-    ngx_lua_main_conf_t  *lmcf;
+    lua_State       *l;
+    ngx_lua_conf_t  *lcf;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "lua thread destroy");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua thread destroy");
 
-    if (ctx->ref == LUA_NOREF) {
+    if (thr->ref == LUA_NOREF) {
         return;
     }
 
-    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx, ngx_lua_module);
 
-    lua_getfield(lmcf->l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
+    lua_getfield(lcf->l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
 
-    lua_rawgeti(lmcf->l, -1, ctx->ref);
-    l = lua_tothread(lmcf->l, -1);
-    lua_pop(lmcf->l, 1);
+    lua_rawgeti(lcf->l, -1, thr->ref);
+    l = lua_tothread(lcf->l, -1);
+    lua_pop(lcf->l, 1);
 
-    lua_getglobal(l, NGX_LUA_KEY_CODE);
-    lua_getfenv(l, -1);
-    lua_xmove(l, lmcf->l, 1);
-    lua_newtable(l);
-    lua_setfenv(l, -2);
+    if (thr->l != l) {
+        return;
+    }
+
+    lua_getglobal(thr->l, NGX_LUA_KEY_CODE);
+    lua_getfenv(thr->l, -1);
+    lua_xmove(thr->l, lcf->l, 1);
+    lua_newtable(thr->l);
+    lua_setfenv(thr->l, -2);
 
     do {
-        lua_settop(l, 0);
-    } while (lua_resume(l, 0) == LUA_YIELD);
+        lua_settop(thr->l, 0);
+    } while (lua_resume(thr->l, 0) == LUA_YIELD);
 
-    lua_settop(l, 0);
-    lua_getglobal(l, NGX_LUA_KEY_CODE);
-    lua_xmove(lmcf->l, l, 1);
-    lua_setfenv(l, -2);
-    lua_pop(l, 1);
+    lua_settop(thr->l, 0);
+    lua_getglobal(thr->l, NGX_LUA_KEY_CODE);
+    lua_xmove(lcf->l, thr->l, 1);
+    lua_setfenv(thr->l, -2);
+    lua_pop(thr->l, 1);
 
-    luaL_unref(lmcf->l, -1, ctx->ref);
-    lua_pop(lmcf->l, 1);
+    luaL_unref(lcf->l, -1, thr->ref);
+    lua_pop(lcf->l, 1);
 
-    ctx->ref = LUA_NOREF;
+    thr->ref = LUA_NOREF;
 }
 
 
 ngx_int_t
-ngx_lua_thread_run(ngx_http_request_t *r, ngx_lua_ctx_t *ctx, int n)
+ngx_lua_thread_run(ngx_lua_thread_t *thr, int n)
 {
-    int                   rc;
-    ngx_str_t             str;
-    ngx_lua_main_conf_t  *lmcf;
+    int        rc;
+    ngx_str_t  str;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua thread run");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua thread run");
 
-    lmcf = ngx_http_get_module_main_conf(r, ngx_lua_module);
+    rc = lua_resume(thr->l, n);
 
-    lua_atpanic(lmcf->l, ngx_lua_panic);
-
-    rc = lua_resume(ctx->l, n);
-
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "lua_resume() rc:%d", rc);
+    ngx_log_debug1(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua_resume() rc:%d", rc);
 
     switch (rc) {
     case 0:
         return NGX_OK;
     case LUA_YIELD:
-        lua_settop(ctx->l, 0);
+        lua_settop(thr->l, 0);
         return NGX_AGAIN;
     case LUA_ERRRUN:
     case LUA_ERRSYNTAX:
@@ -205,132 +201,291 @@ ngx_lua_thread_run(ngx_http_request_t *r, ngx_lua_ctx_t *ctx, int n)
         break;
     }
 
-    if (lua_isstring(ctx->l, -1)) {
-        str.data = (u_char *) lua_tolstring(ctx->l, -1, &str.len);
-        ngx_lua_output(r, str.data, str.len);
+    if (lua_isstring(thr->l, -1)) {
+        str.data = (u_char *) lua_tolstring(thr->l, -1, &str.len);
+        ngx_lua_output(thr, str.data, str.len);
 
-        ngx_log_error(NGX_LOG_ALERT, r->connection->log, 0,
-                      "lua_resume() \"%V\" (rc:%d)", &str, rc);
+        ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
+                      "lua_resume() failed (%d:%V)", rc, &str);
     }
 
     return NGX_ERROR;
 }
 
 
-ngx_http_request_t *
-ngx_lua_request(lua_State *l)
+ngx_lua_thread_t *
+ngx_lua_thread(lua_State *l)
 {
-    ngx_http_request_t  *r;
+    ngx_lua_thread_t  *thr;
 
-    lua_getglobal(l, NGX_LUA_KEY_REQ);
-    r = lua_touserdata(l, -1);
+    lua_getglobal(l, NGX_LUA_KEY_THR);
+    thr = lua_touserdata(l, -1);
     lua_pop(l, 1);
 
-    if (r == NULL) {
-        luaL_error(l, "r is null");
+    if (thr == NULL) {
+        luaL_error(l, "lua thread is null");
     }
 
-    return r;
-}
-
-
-ngx_int_t
-ngx_lua_output(ngx_http_request_t *r, u_char *buf, size_t size)
-{
-    size_t          n;
-    ngx_buf_t      *b;
-    ngx_chain_t    *cl;
-    ngx_lua_ctx_t  *ctx;
-
-    ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
-
-    if (ctx->last == NULL
-        || (size_t) (ctx->last->buf->end - ctx->last->buf->last) < size)
-    {
-        cl = ngx_alloc_chain_link(r->pool);
-        if (cl == NULL) {
-            return NGX_ERROR;
-        }
-
-        n = ngx_max(size, ngx_pagesize);
-
-        cl->buf = ngx_create_temp_buf(r->pool, n);
-        if (cl->buf == NULL) {
-            return NGX_ERROR;
-        }
-
-        cl->next = NULL;
-
-        if (ctx->last != NULL) {
-            ctx->last->next = cl;
-        }
-
-        ctx->last = cl;
-
-        if (ctx->out == NULL) {
-            ctx->out = cl;
-        }
-    }
-
-    b = ctx->last->buf;
-    b->last = ngx_copy(b->last, buf, size);
-
-    return NGX_OK;
+    return thr;
 }
 
 
 void
-ngx_lua_finalize(ngx_http_request_t *r, ngx_int_t rc)
+ngx_lua_load(ngx_lua_thread_t *thr)
 {
-    size_t          size;
-    ngx_chain_t    *cl;
-    ngx_lua_ctx_t  *ctx;
+    int          mode;
+    size_t       size;
+    ssize_t      n;
+    ngx_file_t  *file;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "lua finalize");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua load");
 
-    ctx = ngx_http_get_module_ctx(r, ngx_lua_module);
+    /* TODO: size */
 
-    if (r->headers_out.content_type.len == 0) {
-        ngx_str_set(&r->headers_out.content_type, "text/html");
+    size = ngx_max(thr->size * 4, ngx_pagesize);
+
+    thr->buf = ngx_create_temp_buf(thr->pool, size);
+    if (thr->buf == NULL) {
+        ngx_lua_finalize(thr, NGX_ERROR);
+        return;
     }
 
-    if (r->method == NGX_HTTP_HEAD) {
-        r->headers_out.status = NGX_HTTP_OK;
+    if (ngx_lua_cache_get(thr) == NGX_OK) {
+        thr->cached = 1;
+        ngx_lua_handler(thr);
+        return;
+    }
 
-        rc = ngx_http_send_header(r);
+    thr->lsp = ngx_create_temp_buf(thr->pool, thr->size);
+    if (thr->lsp == NULL) {
+        ngx_lua_finalize(thr, NGX_ERROR);
+        return;
+    }
 
-        if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
-            ngx_http_finalize_request(r, rc);
+    file = &thr->file;
+    file->log = thr->log;
+
+    mode = NGX_FILE_RDONLY|NGX_FILE_NONBLOCK;
+
+#if (NGX_WIN32 && NGX_HAVE_FILE_AIO)
+    if (ngx_event_flags & NGX_USE_IOCP_EVENT) {
+        mode |= NGX_FILE_OVERLAPPED;
+    }
+#endif
+
+    file->fd = ngx_open_file(thr->path.data, mode, NGX_FILE_OPEN,
+                             NGX_FILE_DEFAULT_ACCESS);
+    if (file->fd == NGX_INVALID_FILE) {
+        ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
+                      ngx_open_file_n " \"%V\" failed", &thr->path);
+        ngx_lua_finalize(thr, NGX_ERROR);
+        return;
+    }
+
+    n = ngx_file_aio_read(file, thr->lsp->pos, thr->size, 0, thr->pool);
+
+    if (n == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
+                      "ngx_file_aio_read() \"%V\" failed", &thr->path);
+        ngx_lua_finalize(thr, NGX_ERROR);
+        return;
+    }
+
+    if (n == NGX_AGAIN) {
+        file->aio->data = thr;
+        file->aio->handler = ngx_lua_aio_handler;
+        return;
+    }
+
+    ngx_close_file(file->fd);
+    file->fd = NGX_INVALID_FILE;
+
+    thr->lsp->last += n;
+
+    ngx_lua_handler(thr);
+}
+
+
+static void
+ngx_lua_handler(ngx_lua_thread_t *thr)
+{
+    ngx_int_t        rc;
+    ngx_str_t        str;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua handler");
+
+    if (!thr->cached) {
+        if (ngx_lua_parse(thr) == NGX_ERROR) {
+            ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
+                          "ngx_lua_parse() parsing error");
+            ngx_lua_finalize(thr, NGX_ERROR);
             return;
         }
     }
 
-    size = 0;
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx, ngx_lua_module);
 
-    for (cl = ctx->out; cl != NULL; cl = cl->next) {
-        size += cl->buf->last - cl->buf->pos;
-    }
+    rc = lua_load(lcf->l, ngx_lua_reader, thr, (char *) thr->path.data);
+    if (rc != 0) {
+        if (lua_isstring(lcf->l, -1)) {
+            str.data = (u_char *) lua_tolstring(lcf->l, -1, &str.len);
+            ngx_lua_output(thr, str.data, str.len);
 
-    r->headers_out.status = NGX_HTTP_OK;
-    r->headers_out.content_length_n = size;
+            ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
+                          "lua_load() failed (%d:%V)", rc, &str);
+        }
 
-    rc = ngx_http_send_header(r);
-
-    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
-        ngx_http_finalize_request(r, rc);
+        ngx_lua_finalize(thr, NGX_ERROR);
         return;
     }
 
-    if (ctx->out != NULL && size > 0) {
-        ctx->last->buf->last_buf = 1;
+    if (!thr->cached) {
+        thr->buf->pos = thr->buf->start;
+        thr->buf->last = thr->buf->start;
 
-        rc = ngx_http_output_filter(r, ctx->out);
+        rc = lua_dump(lcf->l, ngx_lua_writer, thr);
+        if (rc != 0) {
+            lua_pop(lcf->l, 1);
 
-    } else {
-        rc = ngx_http_send_special(r, NGX_HTTP_LAST);
+            ngx_log_error(NGX_LOG_ALERT, thr->log, 0, "lua_dump() rc:%d", rc);
+
+            ngx_lua_output(thr, (u_char *) "lua_dump() failed",
+                           sizeof("lua_dump() failed") - 1);
+
+            ngx_lua_finalize(thr, NGX_ERROR);
+            return;
+        }
+
+        ngx_lua_cache_set(thr);
     }
 
-    ngx_http_finalize_request(r, rc);
+    rc = lua_pcall(lcf->l, 0, 1, 0);
+    if (rc != 0) {
+        if (lua_isstring(lcf->l, -1)) {
+            str.data = (u_char *) lua_tolstring(lcf->l, -1, &str.len);
+            ngx_lua_output(thr, str.data, str.len);
+
+            ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
+                          "lua_pcall() failed (%d:%V)", rc, &str);
+        }
+
+        lua_pop(lcf->l, 1);
+
+        ngx_lua_finalize(thr, NGX_ERROR);
+        return;
+    }
+
+    if (ngx_lua_thread_create(thr) == NGX_ERROR) {
+        ngx_lua_finalize(thr, NGX_ERROR);
+        return;
+    }
+
+    rc = ngx_lua_thread_run(thr, 0);
+    if (rc != NGX_AGAIN) {
+        ngx_lua_finalize(thr, rc);
+        return;
+    }
+}
+
+
+static void
+ngx_lua_aio_handler(ngx_event_t *ev)
+{
+    ngx_event_aio_t   *aio;
+    ngx_lua_thread_t  *thr;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua aio handler");
+
+    aio = ev->data;
+    thr = aio->data;
+
+    /* TODO: error handling */
+
+    ev->complete = 0;
+
+    thr->lsp->last += ev->available;
+
+    ngx_close_file(thr->file.fd);
+    thr->file.fd = NGX_INVALID_FILE;
+
+    ngx_lua_handler(thr);
+}
+
+
+static const char *
+ngx_lua_reader(lua_State *l, void *data, size_t *size)
+{
+    ngx_lua_thread_t *thr = data;
+
+    u_char     *p;
+    ngx_buf_t  *b;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua reader");
+
+    b = thr->buf;
+
+    if (b->last - b->pos == 0) {
+        *size = 0;
+        return NULL;
+    }
+
+    p = b->pos;
+    *size = b->last - b->pos;
+    b->pos = b->last;
+
+    return (char *) p;
+}
+
+
+static int
+ngx_lua_writer(lua_State *l, const void *buf, size_t size, void *data)
+{
+    ngx_lua_thread_t *thr = data;
+
+    ngx_buf_t  *b;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua writer");
+
+    b = thr->buf;
+
+    if ((size_t) (b->end - b->last) < size) {
+        ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
+                      "ngx_lua_writer() not enough space in buffer");
+        return -1;
+    }
+
+    b->last = ngx_cpymem(b->last, buf, size);
+
+    return 0;
+}
+
+
+static int
+ngx_lua_panic(lua_State *l)
+{
+    ngx_str_t          str;
+    ngx_log_t         *log;
+    ngx_lua_thread_t  *thr;
+
+    lua_getglobal(l, NGX_LUA_KEY_THR);
+    thr = lua_touserdata(l, -1);
+    lua_pop(l, 1);
+
+    str.data = (u_char *) lua_tolstring(l, -1, &str.len);
+
+    if (thr != NULL) {
+        log = thr->log;
+
+        ngx_lua_output(thr, str.data, str.len);
+
+    } else {
+        log = ngx_cycle->log;
+    }
+
+    ngx_log_error(NGX_LOG_ALERT, log, 0, "%V", &str);
+
+    return 0;
 }
 
 
@@ -352,32 +507,4 @@ ngx_lua_set_path(lua_State *l, char *key, ngx_str_t *value)
     lua_setfield(l, -4, key);
 
     lua_pop(l, 2);
-}
-
-
-static int
-ngx_lua_panic(lua_State *l)
-{
-    ngx_str_t            str;
-    ngx_log_t           *log;
-    ngx_http_request_t  *r;
-
-    lua_getglobal(l, NGX_LUA_KEY_REQ);
-    r = lua_touserdata(l, -1);
-    lua_pop(l, 1);
-
-    str.data = (u_char *) lua_tolstring(l, -1, &str.len);
-
-    if (r != NULL) {
-        ngx_lua_output(r, str.data, str.len);
-
-        log = r->connection->log;
-
-    } else {
-        log = ngx_cycle->log;
-    }
-
-    ngx_log_error(NGX_LOG_ALERT, log, 0, "%V", &str);
-
-    return 0;
 }

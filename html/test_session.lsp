@@ -1,4 +1,4 @@
-<%
+﻿<%
 local print = print
 local nginx = nginx
 local session = nginx.session

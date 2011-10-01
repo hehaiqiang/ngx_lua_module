@@ -8,11 +8,15 @@
 #include <ngx_core.h>
 #include <ngx_md5.h>
 #include <ngx_sha1.h>
-#include <ngx_lua_module.h>
+#include <ngx_lua.h>
 
+
+extern int ngx_lua_http(lua_State *l);
+
+
+static ngx_int_t ngx_lua_core_module_init(ngx_cycle_t *cycle);
 
 static int ngx_lua_print(lua_State *l);
-
 static int ngx_lua_escape_uri(lua_State *l);
 static int ngx_lua_unescape_uri(lua_State *l);
 static int ngx_lua_encode_base64(lua_State *l);
@@ -53,64 +57,71 @@ static luaL_Reg  ngx_lua_methods[] = {
 };
 
 
-void
-ngx_lua_api_init(lua_State *l)
+ngx_lua_module_t  ngx_lua_core_module = {
+    0,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    ngx_lua_core_module_init,
+    NULL,
+    NULL
+};
+
+
+static ngx_int_t
+ngx_lua_core_module_init(ngx_cycle_t *cycle)
 {
-    int  n;
+    int              n;
+    ngx_lua_conf_t  *lcf;
 
-    lua_pushnil(l);
-    lua_setglobal(l, "coroutine");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua core module init");
 
-    lua_register(l, "print", ngx_lua_print);
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_pushnil(lcf->l);
+    lua_setglobal(lcf->l, "coroutine");
+
+    lua_register(lcf->l, "print", ngx_lua_print);
 
     n = sizeof(ngx_lua_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_methods) / sizeof(luaL_Reg) - 1;
 
-    /* STUB */
-    lua_createtable(l, 12, n);
+    lua_createtable(lcf->l, ngx_lua_max_module, n);
 
     for (n = 0; ngx_lua_consts[n].name != NULL; n++) {
-        lua_pushinteger(l, ngx_lua_consts[n].value);
-        lua_setfield(l, -2, ngx_lua_consts[n].name);
+        lua_pushinteger(lcf->l, ngx_lua_consts[n].value);
+        lua_setfield(lcf->l, -2, ngx_lua_consts[n].name);
     }
 
     for (n = 0; ngx_lua_methods[n].name != NULL; n++) {
-        lua_pushcfunction(l, ngx_lua_methods[n].func);
-        lua_setfield(l, -2, ngx_lua_methods[n].name);
+        lua_pushcfunction(lcf->l, ngx_lua_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_methods[n].name);
     }
 
-    ngx_lua_dahua_api_init(l);
-    ngx_lua_dbd_api_init(l);
-    ngx_lua_file_api_init(l);
-    ngx_lua_logger_api_init(l);
-    ngx_lua_request_api_init(l);
-    ngx_lua_response_api_init(l);
-    ngx_lua_session_api_init(l);
-    ngx_lua_smtp_api_init(l);
-    ngx_lua_socket_api_init(l);
-    ngx_lua_variable_api_init(l);
-    ngx_lua_webservice_api_init(l);
-    ngx_lua_xml_api_init(l);
+    lua_setglobal(lcf->l, "nginx");
 
-    lua_setglobal(l, "nginx");
+    return NGX_OK;
 }
 
 
 static int
 ngx_lua_print(lua_State *l)
 {
-    int                  n, i;
-    ngx_str_t            str;
-    ngx_http_request_t  *r;
+    int                n, i;
+    ngx_str_t          str;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua print");
 
     n = lua_gettop(l);
 
     for (i = 1; i <= n; i++) {
         str.data = (u_char *) luaL_checklstring(l, i, &str.len);
 
-        if (ngx_lua_output(r, str.data, str.len) == NGX_ERROR) {
+        if (ngx_lua_output(thr, str.data, str.len) == NGX_ERROR) {
             lua_pushboolean(l, 0);
             lua_pushstring(l, "ngx_lua_output() failed");
             return 2;
@@ -126,12 +137,14 @@ ngx_lua_print(lua_State *l)
 static int
 ngx_lua_escape_uri(lua_State *l)
 {
-    size_t               len;
-    u_char              *p, *last;
-    ngx_str_t            str;
-    ngx_http_request_t  *r;
+    size_t             len;
+    u_char            *p, *last;
+    ngx_str_t          str;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua escape uri");
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
@@ -143,7 +156,7 @@ ngx_lua_escape_uri(lua_State *l)
 
     len = str.len + len * 2;
 
-    p = ngx_pnalloc(r->pool, len);
+    p = ngx_pnalloc(thr->pool, len);
     if (p == NULL) {
         lua_pushboolean(l, 0);
         lua_pushstring(l, "ngx_pnalloc() failed");
@@ -161,15 +174,17 @@ ngx_lua_escape_uri(lua_State *l)
 static int
 ngx_lua_unescape_uri(lua_State *l)
 {
-    u_char              *dst, *p;
-    ngx_str_t            str;
-    ngx_http_request_t  *r;
+    u_char            *dst, *p;
+    ngx_str_t          str;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua unescape uri");
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
-    p = ngx_pnalloc(r->pool, str.len);
+    p = ngx_pnalloc(thr->pool, str.len);
     if (p == NULL) {
         lua_pushboolean(l, 0);
         lua_pushstring(l, "ngx_pnalloc() failed");
@@ -189,16 +204,18 @@ ngx_lua_unescape_uri(lua_State *l)
 static int
 ngx_lua_encode_base64(lua_State *l)
 {
-    ngx_str_t            dst, src;
-    ngx_http_request_t  *r;
+    ngx_str_t          dst, src;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua encode base64");
 
     src.data = (u_char *) luaL_checklstring(l, 1, &src.len);
 
     dst.len = ngx_base64_encoded_length(src.len);
 
-    dst.data = ngx_pnalloc(r->pool, dst.len);
+    dst.data = ngx_pnalloc(thr->pool, dst.len);
     if (dst.data == NULL) {
         lua_pushboolean(l, 0);
         lua_pushstring(l, "ngx_pnalloc() failed");
@@ -216,16 +233,18 @@ ngx_lua_encode_base64(lua_State *l)
 static int
 ngx_lua_decode_base64(lua_State *l)
 {
-    ngx_str_t            dst, src;
-    ngx_http_request_t  *r;
+    ngx_str_t          dst, src;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua decode base64");
 
     src.data = (u_char *) luaL_checklstring(l, 1, &src.len);
 
     dst.len = ngx_base64_decoded_length(src.len);
 
-    dst.data = ngx_pnalloc(r->pool, dst.len);
+    dst.data = ngx_pnalloc(thr->pool, dst.len);
     if (dst.data == NULL) {
         lua_pushboolean(l, 0);
         lua_pushstring(l, "ngx_pnalloc() failed");
@@ -233,6 +252,7 @@ ngx_lua_decode_base64(lua_State *l)
     }
 
     if (ngx_decode_base64(&dst, &src) == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ALERT, thr->log, 0, "ngx_decode_base64() failed");
         lua_pushboolean(l, 0);
         lua_pushstring(l, "ngx_decode_base64() failed");
         return 2;
@@ -247,9 +267,14 @@ ngx_lua_decode_base64(lua_State *l)
 static int
 ngx_lua_crc16(lua_State *l)
 {
-    u_char     crc[4], hex[8], *last;
-    uint32_t   crc16;
-    ngx_str_t  str;
+    u_char             crc[4], hex[8], *last;
+    uint32_t           crc16;
+    ngx_str_t          str;
+    ngx_lua_thread_t  *thr;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua crc16");
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
@@ -271,9 +296,14 @@ ngx_lua_crc16(lua_State *l)
 static int
 ngx_lua_crc32(lua_State *l)
 {
-    u_char     crc[4], hex[8], *last;
-    uint32_t   crc32;
-    ngx_str_t  str;
+    u_char             crc[4], hex[8], *last;
+    uint32_t           crc32;
+    ngx_str_t          str;
+    ngx_lua_thread_t  *thr;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua crc32");
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
@@ -295,9 +325,14 @@ ngx_lua_crc32(lua_State *l)
 static int
 ngx_lua_murmur_hash2(lua_State *l)
 {
-    u_char     hash[4], hex[8], *last;
-    uint32_t   murmur;
-    ngx_str_t  str;
+    u_char             hash[4], hex[8], *last;
+    uint32_t           murmur;
+    ngx_str_t          str;
+    ngx_lua_thread_t  *thr;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua murmur hash2");
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
@@ -319,16 +354,18 @@ ngx_lua_murmur_hash2(lua_State *l)
 static int
 ngx_lua_md5(lua_State *l)
 {
-    u_char              *md5, *hex, *last;
-    ngx_str_t            str;
-    ngx_md5_t            ctx;
-    ngx_http_request_t  *r;
+    u_char            *md5, *hex, *last;
+    ngx_str_t          str;
+    ngx_md5_t          ctx;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua md5");
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
-    md5 = ngx_pnalloc(r->pool, 48);
+    md5 = ngx_pnalloc(thr->pool, 48);
     if (md5 == NULL) {
         lua_pushboolean(l, 0);
         lua_pushstring(l, "ngx_palloc() failed");
@@ -352,16 +389,18 @@ ngx_lua_md5(lua_State *l)
 static int
 ngx_lua_sha1(lua_State *l)
 {
-    u_char              *sha1, *hex, *last;
-    ngx_str_t            str;
-    ngx_sha1_t           ctx;
-    ngx_http_request_t  *r;
+    u_char            *sha1, *hex, *last;
+    ngx_str_t          str;
+    ngx_sha1_t         ctx;
+    ngx_lua_thread_t  *thr;
 
-    r = ngx_lua_request(l);
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua sha1");
 
     str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
-    sha1 = ngx_pnalloc(r->pool, 72);
+    sha1 = ngx_pnalloc(thr->pool, 72);
     if (sha1 == NULL) {
         lua_pushboolean(l, 0);
         lua_pushstring(l, "ngx_palloc() failed");
