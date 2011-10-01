@@ -23,7 +23,6 @@ CONF_ARGS= \
 	--without-http_uwsgi_module \
 	--without-http_scgi_module \
 	--without-http_memcached_module \
-	--add-module=$(ADDON_DIR)/../ngx_dbd_module \
 	--add-module=$(ADDON_DIR)
 
 include $(NGINX_DIR)/unix.mk

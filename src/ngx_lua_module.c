@@ -101,7 +101,9 @@ static ngx_lua_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_cache_module,
     &ngx_lua_core_module,
     &ngx_lua_dahua_module,
+#if (NGX_LUA_DBD)
     &ngx_lua_dbd_module,
+#endif
     &ngx_lua_file_module,
     &ngx_lua_logger_module,
     &ngx_lua_request_module,
@@ -110,8 +112,10 @@ static ngx_lua_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_smtp_module,
     &ngx_lua_socket_module,
     &ngx_lua_variable_module,
+#if (NGX_LUA_AXIS2C)
     &ngx_lua_webservice_module,
     &ngx_lua_xml_module,
+#endif
     NULL
 };
 
