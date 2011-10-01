@@ -6,6 +6,7 @@ ngx_addon_name=ngx_lua_module
 
 . $ngx_addon_dir/config-lua
 #. $ngx_addon_dir/config-luajit
+
 . $ngx_addon_dir/config-axis2c
 
 EVENT_MODULES="$EVENT_MODULES \
@@ -33,20 +34,20 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
 	$ngx_addon_dir/src/ngx_session.c"
 
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-	$ngx_addon_dir/src/api/ngx_lua_core_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_dahua_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_database_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_file_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_http_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_logger_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_request_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_response_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_session_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_smtp_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_socket_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_variable_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_webservice_api.c \
-	$ngx_addon_dir/src/api/ngx_lua_xml_api.c"
+	$ngx_addon_dir/src/modules/ngx_lua_core_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_dahua_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_database_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_file_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_http.c \
+	$ngx_addon_dir/src/modules/ngx_lua_logger_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_request_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_response_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_session_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_smtp_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_socket_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_variable_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_webservice_module.c \
+	$ngx_addon_dir/src/modules/ngx_lua_xml_module.c"
 
 USE_MD5=YES
 USE_SHA1=YES
