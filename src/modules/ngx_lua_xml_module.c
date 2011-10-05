@@ -86,28 +86,24 @@ ngx_lua_xml_module_init(ngx_cycle_t *cycle)
 static int
 ngx_lua_xml_parse(lua_State *l)
 {
-    char                   *uri, *prefix, *name;
-    ngx_str_t               soap;
-    axiom_node_t           *node;
-    axutil_env_t           *env;
-    axutil_log_t           *log;
-    axutil_error_t         *error;
-    axiom_element_t        *elem;
-    ngx_lua_thread_t       *thr;
-    axiom_namespace_t      *ns;
-    axiom_soap_body_t      *body;
-    axutil_allocator_t     *a;
-    axiom_xml_reader_t     *reader;
-    axiom_soap_header_t    *header;
-    axiom_stax_builder_t   *builder;
-    axiom_soap_builder_t   *soap_builder;
-    axiom_soap_envelope_t  *envelope;
+    char                  *name;
+    ngx_str_t              xml;
+    axiom_node_t          *node;
+    axutil_env_t          *env;
+    axutil_log_t          *log;
+    axutil_error_t        *error;
+    axiom_element_t       *elem;
+    axiom_document_t      *doc;
+    ngx_lua_thread_t      *thr;
+    axutil_allocator_t    *a;
+    axiom_xml_reader_t    *reader;
+    axiom_stax_builder_t  *builder;
 
     thr = ngx_lua_thread(l);
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua xml parse");
 
-    soap.data = (u_char *) luaL_checklstring(l, -1, &soap.len);
+    xml.data = (u_char *) luaL_checklstring(l, -1, &xml.len);
 
     lua_createtable(l, 2, 2);
 
@@ -116,70 +112,25 @@ ngx_lua_xml_parse(lua_State *l)
     error = axutil_error_create(a);
     env = axutil_env_create_with_error_log(a, error, log);
 
-    reader = axiom_xml_reader_create_for_memory(env, soap.data, soap.len, NULL,
+    reader = axiom_xml_reader_create_for_memory(env, xml.data, xml.len, NULL,
                                                 AXIS2_XML_PARSER_TYPE_BUFFER);
     builder = axiom_stax_builder_create(env, reader);
-    soap_builder = axiom_soap_builder_create(env, builder,
-                                      AXIOM_SOAP12_SOAP_ENVELOPE_NAMESPACE_URI);
-    envelope = axiom_soap_builder_get_soap_envelope(soap_builder, env);
+    doc = axiom_stax_builder_get_document(builder, env);
 
-    ns = axiom_soap_envelope_get_namespace(envelope, env);
-    if (ns != NULL) {
-        uri = axiom_namespace_get_uri(ns, env);
-        if (uri != NULL) {
-            lua_pushstring(l, uri);
-            lua_setfield(l, -2, "uri");
-        }
+    node = axiom_document_get_root_element(doc, env);
 
-        prefix = axiom_namespace_get_prefix(ns, env);
-        if (prefix != NULL) {
-            lua_pushstring(l, prefix);
-            lua_setfield(l, -2, "prefix");
-        }
+    if (axiom_node_get_node_type(node, env) != AXIOM_ELEMENT) {
+        return 1;
     }
 
-    header = axiom_soap_envelope_get_header(envelope, env);
-    if (header != NULL) {
-        node = axiom_soap_header_get_base_node(header, env);
-        elem = axiom_node_get_data_element(node, env);
+    elem = axiom_node_get_data_element(node, env);
+    name = axiom_element_get_localname(elem, env);
 
-        /* TODO */
+    lua_newtable(l);
 
-        lua_newtable(l);
+    ngx_lua_xml_parse_children(l, env, node, elem);
 
-        ngx_lua_xml_parse_children(l, env, node, elem);
-
-        lua_setfield(l, -2, "header");
-    }
-
-    body = axiom_soap_envelope_get_body(envelope, env);
-    if (body != NULL) {
-
-        /* TODO: axiom_soap_body_has_fault */
-        /* TODO: axiom_soap_body_get_fault */
-
-        node = axiom_soap_body_get_base_node(body, env);
-        if (node == NULL) {
-            return 1;
-        }
-
-        if (axiom_node_get_node_type(node, env) != AXIOM_ELEMENT) {
-            return 1;
-        }
-
-        elem = axiom_node_get_data_element(node, env);
-        name = axiom_element_get_localname(elem, env);
-
-        if (ngx_strcmp(name, "Body") != 0) {
-            return 1;
-        }
-
-        lua_newtable(l);
-
-        ngx_lua_xml_parse_children(l, env, node, elem);
-
-        lua_setfield(l, -2, "body");
-    }
+    lua_setfield(l, -2, name);
 
     return 1;
 }
