@@ -24,7 +24,9 @@
 
 #else
 
-#define ngx_lua_dlopen(name)        dlopen(name)
+#include <dlfcn.h>
+
+#define ngx_lua_dlopen(name)        dlopen(name, 0)
 #define ngx_lua_dlopen_n            "dlopen()"
 
 #define ngx_lua_dlclose(handle)     dlclose(handle)

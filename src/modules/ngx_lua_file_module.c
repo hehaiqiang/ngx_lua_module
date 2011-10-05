@@ -36,7 +36,9 @@ static int ngx_lua_file_open(lua_State *l);
 static int ngx_lua_file_close(lua_State *l);
 static int ngx_lua_file_read(lua_State *l);
 static int ngx_lua_file_write(lua_State *l);
+#if 0
 static int ngx_lua_file_index(lua_State *l);
+#endif
 static int ngx_lua_file_gc(lua_State *l);
 static int ngx_lua_file_info(lua_State *l);
 
