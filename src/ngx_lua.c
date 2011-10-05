@@ -75,7 +75,7 @@ ngx_lua_destroy(void *data)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_lua_thread_create(ngx_lua_thread_t *thr)
 {
     int              top;

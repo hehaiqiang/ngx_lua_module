@@ -23,6 +23,27 @@ typedef struct {
 } ngx_lua_const_t;
 
 
+typedef struct {
+    ngx_uint_t              index;
+    void                   *handle;
+    void                 *(*create_conf)(ngx_cycle_t *cycle);
+    char                 *(*init_conf)(ngx_cycle_t *cycle, void *conf);
+    char                 *(*set_directive)(ngx_conf_t *cf, ngx_command_t *cmd,
+                                           void *conf);
+    ngx_int_t             (*init_module)(ngx_cycle_t *cycle);
+    ngx_int_t             (*init_process)(ngx_cycle_t *cycle);
+    void                  (*exit_process)(ngx_cycle_t *cycle);
+} ngx_lua_module_t;
+
+
+typedef struct {
+    ngx_str_t               path;
+    ngx_str_t               cpath;
+    lua_State              *l;
+    void                  **conf;
+} ngx_lua_conf_t;
+
+
 typedef struct ngx_lua_thread_s  ngx_lua_thread_t;
 
 typedef ngx_int_t (*ngx_lua_output_t)(ngx_lua_thread_t *thr, u_char *buf,
@@ -49,35 +70,11 @@ struct ngx_lua_thread_s {
 };
 
 
-typedef struct {
-    ngx_uint_t              index;
-    void                   *handle;
-    void                 *(*create_conf)(ngx_cycle_t *cycle);
-    char                 *(*init_conf)(ngx_cycle_t *cycle, void *conf);
-    char                 *(*set_directive)(ngx_conf_t *cf, ngx_command_t *cmd,
-                                          void *conf);
-    ngx_int_t             (*init_module)(ngx_cycle_t *cycle);
-    ngx_int_t             (*init_process)(ngx_cycle_t *cycle);
-    void                  (*exit_process)(ngx_cycle_t *cycle);
-} ngx_lua_module_t;
-
-
-typedef struct {
-    ngx_str_t               path;
-    ngx_str_t               cpath;
-    lua_State              *l;
-    void                  **conf;
-} ngx_lua_conf_t;
-
-
 ngx_int_t ngx_lua_create(ngx_cycle_t *cycle, ngx_lua_conf_t *lcf);
 void ngx_lua_destroy(void *data);
-
-ngx_int_t ngx_lua_thread_create(ngx_lua_thread_t *thr);
 void ngx_lua_thread_destroy(ngx_lua_thread_t *thr);
 ngx_int_t ngx_lua_thread_run(ngx_lua_thread_t *thr, int n);
 ngx_lua_thread_t *ngx_lua_thread(lua_State *l);
-
 void ngx_lua_load(ngx_lua_thread_t *thr);
 
 ngx_int_t ngx_lua_parse(ngx_lua_thread_t *thr);
