@@ -13,5 +13,6 @@ mkdir ./build/temp
 
 cp -fr conf/nginx-unix.conf ./build/conf/nginx.conf
 cp -fr conf/mime.types ./build/conf/mime.types
+cp -fr conf/lua_load_modules.conf ./build/conf/lua_load_modules.conf
 
 cp -fr html ./build

@@ -61,6 +61,11 @@ ngx_lua_module_t  ngx_lua_request_module = {
 };
 
 
+#if (NGX_LUA_DLL)
+ngx_lua_module_t  *module = &ngx_lua_request_module;
+#endif
+
+
 static ngx_int_t
 ngx_lua_request_module_init(ngx_cycle_t *cycle)
 {

@@ -46,6 +46,11 @@ ngx_lua_module_t  ngx_lua_webservice_module = {
 };
 
 
+#if (NGX_LUA_DLL)
+ngx_lua_module_t  *module = &ngx_lua_webservice_module;
+#endif
+
+
 static ngx_int_t
 ngx_lua_webservice_module_init(ngx_cycle_t *cycle)
 {
@@ -252,7 +257,7 @@ ngx_lua_webservice_parse_children(lua_State *l, axutil_env_t *env,
                     break;
                 }
 
-                axutil_hash_this(hi, NULL, NULL, &attr);
+                axutil_hash_this(hi, NULL, NULL, (void **) &attr);
 
                 lua_pushstring(l, axiom_attribute_get_value(attr, env));
                 lua_setfield(l, -2, axiom_attribute_get_localname(attr, env));

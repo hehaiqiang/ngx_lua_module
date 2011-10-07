@@ -79,6 +79,11 @@ ngx_lua_module_t  ngx_lua_smtp_module = {
 };
 
 
+#if (NGX_LUA_DLL)
+ngx_lua_module_t  *module = &ngx_lua_smtp_module;
+#endif
+
+
 static ngx_int_t
 ngx_lua_smtp_module_init(ngx_cycle_t *cycle)
 {

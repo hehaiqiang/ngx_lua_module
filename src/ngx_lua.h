@@ -92,8 +92,8 @@ ngx_int_t ngx_lua_cache_set(ngx_lua_thread_t *thr);
      ngx_get_conf(cycle->conf_ctx, ngx_lua_module))->conf[module.index]
 
 
-extern ngx_module_t  ngx_lua_module;
-extern ngx_uint_t    ngx_lua_max_module;
+extern ngx_dll ngx_module_t  ngx_lua_module;
+extern ngx_uint_t            ngx_lua_max_module;
 
 
 #endif /* _NGX_LUA_H_INCLUDED_ */
