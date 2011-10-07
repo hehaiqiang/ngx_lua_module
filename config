@@ -4,16 +4,6 @@
 
 ngx_addon_name=ngx_lua_module
 
-
-NGX_LUA_DLL=NO
-
-NGX_LUA_DEF="$ngx_addon_dir/src/ngx_lua_module.def"
-
-. $ngx_addon_dir/config-lua
-#. $ngx_addon_dir/config-luajit
-
-CORE_LINK="$CORE_LINK -def:$NGX_LUA_DEF"
-
 EVENT_MODULES="$EVENT_MODULES \
     ngx_lua_module"
 
@@ -24,7 +14,6 @@ HTTP_INCS="$HTTP_INCS \
     $ngx_addon_dir/src"
 
 NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
-    $NGX_LUA_DEF \
     $ngx_addon_dir/src/ngx_lua.h \
     $ngx_addon_dir/src/ngx_lua_dlfcn.h \
     $ngx_addon_dir/src/ngx_lua_http_module.h \
@@ -38,6 +27,10 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
     $ngx_addon_dir/src/ngx_lua_http_module.c \
     $ngx_addon_dir/src/ngx_session.c"
 
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
+    $ngx_addon_dir/src/modules/ngx_lua_core_module.c \
+    $ngx_addon_dir/src/modules/ngx_lua_http.c"
+
 NGX_LUA_MODULE_SRCS=" \
     $ngx_addon_dir/src/modules/ngx_lua_dahua_module.c \
     $ngx_addon_dir/src/modules/ngx_lua_file_module.c \
@@ -49,11 +42,10 @@ NGX_LUA_MODULE_SRCS=" \
     $ngx_addon_dir/src/modules/ngx_lua_socket_module.c \
     $ngx_addon_dir/src/modules/ngx_lua_variable_module.c"
 
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-    $ngx_addon_dir/src/modules/ngx_lua_core_module.c \
-    $ngx_addon_dir/src/modules/ngx_lua_http.c"
+NGX_LUA_DLL=YES
 
 if [ $NGX_LUA_DLL = NO ]; then
+
     . $ngx_addon_dir/config-axis2c
 
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
@@ -63,6 +55,7 @@ if [ $NGX_LUA_DLL = NO ]; then
         $ngx_addon_dir/src/ngx_lua_axis2c.c \
         $ngx_addon_dir/src/modules/ngx_lua_webservice_module.c \
         $ngx_addon_dir/src/modules/ngx_lua_xml_module.c"
+
 
     . $ngx_addon_dir/../ngx_dbd_module/config-libdrizzle
     . $ngx_addon_dir/../ngx_dbd_module/config-sqlite3
@@ -75,17 +68,29 @@ if [ $NGX_LUA_DLL = NO ]; then
 
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
         $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_libdrizzle.c \
-        $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_sqlite3.c"
-
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
+        $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_sqlite3.c \
         $ngx_addon_dir/src/modules/ngx_lua_database_module.c"
+
 
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_MODULE_SRCS"
 
     have=NGX_LUA_DLL . auto/nohave
+
 else
+
+    if [ "$NGX_PLATFORM" = win32 ]; then
+        NGX_LUA_DEF="$ngx_addon_dir/src/ngx_lua_module.def"
+
+        CORE_LINK="$CORE_LINK -def:$NGX_LUA_DEF"
+
+        NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DEF"
+    fi
+
     have=NGX_LUA_DLL . auto/have
 fi
+
+. $ngx_addon_dir/config-lua
+#. $ngx_addon_dir/config-luajit
 
 USE_MD5=YES
 USE_SHA1=YES

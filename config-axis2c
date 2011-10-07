@@ -19,6 +19,6 @@ fi
 CORE_INCS="$CORE_INCS $AXIS2C/incs"
 CORE_LIBS="$CORE_LIBS $AXIS2C_LIBS"
 
-if [ "$NGX_PLATFORM" == win32 ]; then
+if [ "$NGX_PLATFORM" = win32 ]; then
     have=HAVE_ISO_VARARGS . auto/have
 fi

@@ -3,7 +3,14 @@
 
 
 if [ $NGX_LUA_DLL = YES ]; then
-    mkdir -p $NGX_OBJS/modules
+    ngx_so_dir="$NGX_OBJS${ngx_dirsep}modules${ngx_dirsep}"
+
+    mkdir -p $ngx_so_dir
+
+    ngx_lib=" \
+        -link -dll -verbose:lib \
+        -def:$ngx_addon_dir/src/modules/ngx_lua_module.def \
+        ws2_32.lib $NGX_OBJS${ngx_dirsep}nginx.lib"
 
     ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) -DNGX_DLL=1 \$(ALL_INCS)"
 
@@ -29,20 +36,15 @@ $ngx_obj:	\$(ADDON_DEPS)$ngx_cont$ngx_src
 
 END
 
-        ngx_so_dir="modules/"
-
-        ngx_soext="so"
-
         ngx_so=`basename $ngx_obj`
 
         ngx_so=`echo $ngx_so \
-            | sed -e "s#^\(.*\.\)obj\\$#$ngx_so_dir\1$ngx_soext#g"`
+            | sed -e "s#^\(.*\.\)$ngx_objext\\$#$ngx_so_dir\1so#g"`
 
         cat << END                                            >> $NGX_MAKEFILE
 
-$NGX_OBJS${ngx_dirsep}$ngx_so:	$ngx_obj$ngx_spacer
-	\$(LINK) ${ngx_long_start}${ngx_binout}$NGX_OBJS${ngx_dirsep}$ngx_so$ngx_long_cont$ngx_obj -link -dll -verbose:lib -def:$ngx_addon_dir/src/modules/ngx_lua_module.def ws2_32.lib $NGX_OBJS${ngx_dirsep}nginx.lib
-	$ngx_rcc
+$ngx_so:	$ngx_obj$ngx_spacer
+	\$(LINK) ${ngx_long_start}${ngx_binout}$ngx_so$ngx_long_cont$ngx_obj$ngx_lib
 ${ngx_long_end}
 
 END
