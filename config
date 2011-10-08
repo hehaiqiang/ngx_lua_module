@@ -42,7 +42,7 @@ NGX_LUA_MODULE_SRCS=" \
     $ngx_addon_dir/src/modules/ngx_lua_socket_module.c \
     $ngx_addon_dir/src/modules/ngx_lua_variable_module.c"
 
-NGX_LUA_DLL=YES
+NGX_LUA_DLL=NO
 
 if [ $NGX_LUA_DLL = NO ]; then
 
@@ -84,6 +84,8 @@ else
         CORE_LINK="$CORE_LINK -def:$NGX_LUA_DEF"
 
         NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DEF"
+    else
+        CORE_LINK="$CORE_LINK -rdynamic"
     fi
 
     have=NGX_LUA_DLL . auto/have

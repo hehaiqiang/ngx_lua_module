@@ -312,7 +312,8 @@ ngx_lua_load_module(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     handle = ngx_lua_dlopen((char *) value[1].data);
     if (handle == NULL) {
         ngx_conf_log_error(NGX_LOG_ALERT, cf, ngx_errno,
-                           ngx_lua_dlopen_n " \"%V\" failed", &value[1]);
+                           ngx_lua_dlopen_n " \"%V\" failed (%s)",
+                           &value[1], ngx_lua_dlerror());
         return NGX_CONF_ERROR;
     }
 

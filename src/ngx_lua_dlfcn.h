@@ -22,17 +22,21 @@
 #define ngx_lua_dlsym(handle, sym)  GetProcAddress(handle, sym)
 #define ngx_lua_dlsym_n             "GetProcAddress()"
 
+#define ngx_lua_dlerror()           ""
+
 #else
 
 #include <dlfcn.h>
 
-#define ngx_lua_dlopen(name)        dlopen(name, 0)
+#define ngx_lua_dlopen(name)        dlopen(name, RTLD_LAZY)
 #define ngx_lua_dlopen_n            "dlopen()"
 
 #define ngx_lua_dlclose(handle)     dlclose(handle)
 
 #define ngx_lua_dlsym(handle, sym)  dlsym(handle, sym)
 #define ngx_lua_dlsym_n             "dlsym()"
+
+#define ngx_lua_dlerror()           dlerror()
 
 #endif
 

@@ -7,12 +7,20 @@ if [ $NGX_LUA_DLL = YES ]; then
 
     mkdir -p $ngx_so_dir
 
-    ngx_lib=" \
-        -link -dll -verbose:lib \
-        -def:$ngx_addon_dir/src/modules/ngx_lua_module.def \
-        ws2_32.lib $NGX_OBJS${ngx_dirsep}nginx.lib"
+    if [ "$NGX_PLATFORM" != win32 ]; then
+        ngx_lib=" -shared -fPIC"
+    else
+        ngx_lib=" \
+            -link -dll -verbose:lib \
+            -def:$ngx_addon_dir/src/modules/ngx_lua_module.def \
+            ws2_32.lib $NGX_OBJS${ngx_dirsep}nginx.lib"
+    fi
 
     ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) -DNGX_DLL=1 \$(ALL_INCS)"
+
+    if [ "$NGX_PLATFORM" != win32 ]; then
+        ngx_cc="$ngx_cc -fPIC"
+    fi
 
     for ngx_src in $NGX_LUA_MODULE_SRCS
     do
