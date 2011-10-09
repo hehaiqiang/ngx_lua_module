@@ -12,19 +12,7 @@
 #include <ngx_core.h>
 
 
-#if (NGX_WIN32)
-
-#define ngx_lua_dlopen(name)        LoadLibrary(name)
-#define ngx_lua_dlopen_n            "LoadLibrary()"
-
-#define ngx_lua_dlclose(handle)     FreeLibrary(handle)
-
-#define ngx_lua_dlsym(handle, sym)  GetProcAddress(handle, sym)
-#define ngx_lua_dlsym_n             "GetProcAddress()"
-
-#define ngx_lua_dlerror()           ""
-
-#else
+#if !(NGX_WIN32)
 
 #include <dlfcn.h>
 
@@ -37,6 +25,18 @@
 #define ngx_lua_dlsym_n             "dlsym()"
 
 #define ngx_lua_dlerror()           dlerror()
+
+#else
+
+#define ngx_lua_dlopen(name)        LoadLibrary(name)
+#define ngx_lua_dlopen_n            "LoadLibrary()"
+
+#define ngx_lua_dlclose(handle)     FreeLibrary(handle)
+
+#define ngx_lua_dlsym(handle, sym)  GetProcAddress(handle, sym)
+#define ngx_lua_dlsym_n             "GetProcAddress()"
+
+#define ngx_lua_dlerror()           ""
 
 #endif
 
