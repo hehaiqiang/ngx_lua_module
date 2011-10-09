@@ -138,7 +138,7 @@ ngx_lua_module_init(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
-    for (i = 0; ngx_lua_modules[i] != NULL; i++) {
+    for (i = 0; i < ngx_lua_max_module; i++) {
         m = ngx_lua_modules[i];
 
         if (m->init_module == NULL) {
@@ -172,7 +172,7 @@ ngx_lua_process_init(ngx_cycle_t *cycle)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua process init");
 
-    for (i = 0; ngx_lua_modules[i] != NULL; i++) {
+    for (i = 0; i < ngx_lua_max_module; i++) {
         m = ngx_lua_modules[i];
 
         if (m->init_process == NULL) {
@@ -196,7 +196,7 @@ ngx_lua_process_exit(ngx_cycle_t *cycle)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua process exit");
 
-    for (i = 0; ngx_lua_modules[i] != NULL; i++) {
+    for (i = 0; i < ngx_lua_max_module; i++) {
         m = ngx_lua_modules[i];
 
         if (m->exit_process != NULL) {
@@ -231,11 +231,11 @@ ngx_lua_create_conf(ngx_cycle_t *cycle)
     }
 
     ngx_lua_max_module = 0;
-    for (i = 0; ngx_lua_modules[i]; i++) {
+    for (i = 0; ngx_lua_modules[i] != NULL; i++) {
         ngx_lua_modules[i]->index = ngx_lua_max_module++;
     }
 
-    for (i = 0; ngx_lua_modules[i] != NULL; i++) {
+    for (i = 0; i < ngx_lua_max_module; i++) {
         m = ngx_lua_modules[i];
 
         if (m->create_conf == NULL) {
@@ -269,7 +269,7 @@ ngx_lua_init_conf(ngx_cycle_t *cycle, void *conf)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua init conf");
 
-    for (i = 0; ngx_lua_modules[i] != NULL; i++) {
+    for (i = 0; i < ngx_lua_max_module; i++) {
         m = ngx_lua_modules[i];
 
         if (m->init_conf == NULL) {
@@ -356,7 +356,7 @@ ngx_lua_set_directive(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cf->log, 0, "lua set directive");
 
-    for (i = 0; ngx_lua_modules[i] != NULL; i++) {
+    for (i = 0; i < ngx_lua_max_module; i++) {
         m = ngx_lua_modules[i];
 
         if (m->set_directive == NULL) {
