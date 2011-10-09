@@ -42,7 +42,7 @@ NGX_LUA_MODULE_SRCS=" \
     $ngx_addon_dir/src/modules/ngx_lua_socket_module.c \
     $ngx_addon_dir/src/modules/ngx_lua_variable_module.c"
 
-NGX_LUA_DLL=NO
+NGX_LUA_DLL=YES
 
 if [ $NGX_LUA_DLL = NO ]; then
 
@@ -78,17 +78,21 @@ if [ $NGX_LUA_DLL = NO ]; then
 
 else
 
-    if [ "$NGX_PLATFORM" = win32 ]; then
+    if [ "$NGX_PLATFORM" != win32 ]; then
+        CORE_LINK="$CORE_LINK -rdynamic"
+    else
         NGX_LUA_DEF="$ngx_addon_dir/src/ngx_lua_module.def"
 
         CORE_LINK="$CORE_LINK -def:$NGX_LUA_DEF"
 
         NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DEF"
-    else
-        CORE_LINK="$CORE_LINK -rdynamic"
     fi
 
     have=NGX_LUA_DLL . auto/have
+fi
+
+if [ "$NGX_PLATFORM" != win32 ]; then
+    CORE_LINK="$CORE_LINK -ldl"
 fi
 
 . $ngx_addon_dir/config-lua
