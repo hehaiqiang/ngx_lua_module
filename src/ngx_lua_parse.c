@@ -20,7 +20,7 @@
 
 
 ngx_int_t
-ngx_lua_parse(ngx_lua_thread_t *thr)
+ngx_lua_parse_lsp(ngx_lua_thread_t *thr)
 {
     u_char      *p, ch, *out, *html_start, *lua_start, *lua_end;
     ngx_uint_t   backslash, dquoted, squoted;
@@ -37,7 +37,7 @@ ngx_lua_parse(ngx_lua_thread_t *thr)
         sw_error
     } state;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua parse");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua parse lsp");
 
     state = sw_start;
 

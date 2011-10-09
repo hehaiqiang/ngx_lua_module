@@ -46,6 +46,7 @@ typedef struct {
 
 typedef struct ngx_lua_thread_s  ngx_lua_thread_t;
 
+typedef ngx_int_t (*ngx_lua_parse_t)(ngx_lua_thread_t *thr);
 typedef ngx_int_t (*ngx_lua_output_t)(ngx_lua_thread_t *thr, u_char *buf,
     size_t size);
 typedef void (*ngx_lua_finalize_t)(ngx_lua_thread_t *thr, ngx_int_t rc);
@@ -64,6 +65,7 @@ struct ngx_lua_thread_s {
     int                     ref;
     void                   *ctx;
     ngx_connection_t       *c;
+    ngx_lua_parse_t         parse;
     ngx_lua_output_t        output;
     ngx_lua_finalize_t      finalize;
     unsigned                cached:1;
@@ -77,12 +79,13 @@ ngx_int_t ngx_lua_thread_run(ngx_lua_thread_t *thr, int n);
 ngx_lua_thread_t *ngx_lua_thread(lua_State *l);
 void ngx_lua_load(ngx_lua_thread_t *thr);
 
-ngx_int_t ngx_lua_parse(ngx_lua_thread_t *thr);
+ngx_int_t ngx_lua_parse_lsp(ngx_lua_thread_t *thr);
 
 ngx_int_t ngx_lua_cache_get(ngx_lua_thread_t *thr);
 ngx_int_t ngx_lua_cache_set(ngx_lua_thread_t *thr);
 
 
+#define ngx_lua_parse(thr)              thr->parse(thr)
 #define ngx_lua_output(thr, buf, size)  thr->output(thr, buf, size)
 #define ngx_lua_finalize(thr, rc)       thr->finalize(thr, rc)
 

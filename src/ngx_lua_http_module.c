@@ -101,6 +101,7 @@ ngx_lua_http_handler(ngx_http_request_t *r)
     thr->ref = LUA_NOREF;
     thr->ctx = ctx;
     thr->c = r->connection;
+    thr->parse = ngx_lua_parse_lsp;
     thr->output = ngx_lua_http_output;
     thr->finalize = ngx_lua_http_finalize;
 
