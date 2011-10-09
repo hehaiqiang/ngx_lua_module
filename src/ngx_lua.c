@@ -282,7 +282,12 @@ ngx_lua_load(ngx_lua_thread_t *thr)
         return;
     }
 
+#if !(NGX_WIN32)
+    /* TODO: ngx_file_aio_read */
+    n = ngx_read_file(file, thr->lsp->pos, thr->size, 0);
+#else
     n = ngx_file_aio_read(file, thr->lsp->pos, thr->size, 0, thr->pool);
+#endif
 
     if (n == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
