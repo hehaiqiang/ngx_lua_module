@@ -99,6 +99,7 @@ ngx_lua_http_handler(ngx_http_request_t *r)
     thr->log = r->connection->log;
     thr->file.fd = NGX_INVALID_FILE;
     thr->ref = LUA_NOREF;
+    thr->conf = lcf->conf;
     thr->ctx = ctx;
     thr->c = r->connection;
     thr->parse = ngx_lua_parse_lsp;

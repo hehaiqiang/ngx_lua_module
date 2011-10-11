@@ -24,22 +24,10 @@ typedef struct {
 
 
 typedef struct {
-    ngx_uint_t              index;
-    void                   *handle;
-    void                 *(*create_conf)(ngx_cycle_t *cycle);
-    char                 *(*init_conf)(ngx_cycle_t *cycle, void *conf);
-    char                 *(*set_directive)(ngx_conf_t *cf, ngx_command_t *cmd,
-                                           void *conf);
-    ngx_int_t             (*init_module)(ngx_cycle_t *cycle);
-    ngx_int_t             (*init_process)(ngx_cycle_t *cycle);
-    void                  (*exit_process)(ngx_cycle_t *cycle);
-} ngx_lua_module_t;
-
-
-typedef struct {
     ngx_str_t               path;
     ngx_str_t               cpath;
     lua_State              *l;
+    void                  **handle;
     void                  **conf;
 } ngx_lua_conf_t;
 
@@ -63,6 +51,7 @@ struct ngx_lua_thread_s {
     ngx_buf_t              *buf;
     lua_State              *l;
     int                     ref;
+    void                  **conf;
     void                   *ctx;
     ngx_connection_t       *c;
     ngx_lua_parse_t         parse;
@@ -93,6 +82,8 @@ ngx_int_t ngx_lua_cache_set(ngx_lua_thread_t *thr);
 #define ngx_lua_get_conf(cycle, module)                                       \
     ((ngx_lua_conf_t *)                                                       \
      ngx_get_conf(cycle->conf_ctx, ngx_lua_module))->conf[module.index]
+
+#define ngx_lua_thread_get_conf(thr, module)  (thr)->conf[module.index]
 
 
 extern ngx_dll ngx_module_t  ngx_lua_module;

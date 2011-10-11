@@ -79,8 +79,6 @@ struct ngx_lua_dbd_cleanup_ctx_s {
 };
 
 
-static ngx_int_t ngx_lua_dbd_module_init(ngx_cycle_t *cycle);
-
 static int ngx_lua_dbd_create_pool(lua_State *l);
 static int ngx_lua_dbd_destroy_pool(lua_State *l);
 static void ngx_lua_dbd_pool_insert_value(ngx_rbtree_node_t *temp,
@@ -110,9 +108,10 @@ static void ngx_lua_dbd_cleanup(void *data);
 
 static ngx_int_t ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data);
 
+static ngx_int_t ngx_lua_dbd_module_init(ngx_cycle_t *cycle);
 static void *ngx_lua_dbd_create_conf(ngx_cycle_t *cycle);
-static char *ngx_lua_dbd_set_directive(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
+static char *ngx_lua_dbd_init_conf(ngx_cycle_t *cycle, void *conf);
+static char *ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
 static luaL_Reg  ngx_lua_dbd_methods[] = {
@@ -123,50 +122,54 @@ static luaL_Reg  ngx_lua_dbd_methods[] = {
 };
 
 
-ngx_lua_module_t  ngx_lua_dbd_module = {
-    0,
-    NULL,
+static ngx_command_t  ngx_lua_dbd_commands[] = {
+
+    { ngx_string("lua_dbd"),
+      NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE2,
+      ngx_lua_dbd,
+      0,
+      0,
+      NULL },
+
+      ngx_null_command
+};
+
+
+static ngx_core_module_t  ngx_lua_dbd_module_ctx = {
+    ngx_string("dbd"),
     ngx_lua_dbd_create_conf,
-    NULL,
-    ngx_lua_dbd_set_directive,
-    ngx_lua_dbd_module_init,
-    NULL,
-    NULL
+    ngx_lua_dbd_init_conf,
+};
+
+
+ngx_module_t  ngx_lua_dbd_module = {
+    NGX_MODULE_V1,
+    &ngx_lua_dbd_module_ctx,               /* module context */
+    ngx_lua_dbd_commands,                  /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    ngx_lua_dbd_module_init,               /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
 };
 
 
 #if (NGX_LUA_DLL)
-ngx_lua_module_t  *module = &ngx_lua_dbd_module;
-#endif
-
-
-static ngx_int_t
-ngx_lua_dbd_module_init(ngx_cycle_t *cycle)
+ngx_module_t **
+ngx_lua_get_modules(void)
 {
-    int              n;
-    ngx_lua_conf_t  *lcf;
+    static ngx_module_t  *modules = {
+        &ngx_lua_dbd_module,
+        NULL
+    };
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua dbd module init");
-
-    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
-
-    lua_getglobal(lcf->l, "nginx");
-
-    n = sizeof(ngx_lua_dbd_methods) / sizeof(luaL_Reg) - 1;
-
-    lua_createtable(lcf->l, 0, n);
-
-    for (n = 0; ngx_lua_dbd_methods[n].name != NULL; n++) {
-        lua_pushcfunction(lcf->l, ngx_lua_dbd_methods[n].func);
-        lua_setfield(lcf->l, -2, ngx_lua_dbd_methods[n].name);
-    }
-
-    lua_setfield(lcf->l, -2, "database");
-
-    lua_pop(lcf->l, 1);
-
-    return NGX_OK;
+    return modules;
 }
+#endif
 
 
 static int
@@ -217,7 +220,7 @@ ngx_lua_dbd_create_pool(lua_State *l)
     lua_getfield(l, 1, "max_connections");
     max_connections = (ngx_uint_t) luaL_checknumber(l, -1);
 
-    ldcf = ngx_lua_get_conf(ngx_cycle, ngx_lua_dbd_module);
+    ldcf = ngx_lua_thread_get_conf(thr, ngx_lua_dbd_module);
 
     ngx_shmtx_lock(&ldcf->dbd_pool->mutex);
 
@@ -313,7 +316,7 @@ ngx_lua_dbd_destroy_pool(lua_State *l)
 
     name.data = (u_char *) luaL_checklstring(l, -1, &name.len);
 
-    ldcf = ngx_lua_get_conf(ngx_cycle, ngx_lua_dbd_module);
+    ldcf = ngx_lua_thread_get_conf(thr, ngx_lua_dbd_module);
 
     ngx_shmtx_lock(&ldcf->dbd_pool->mutex);
 
@@ -539,7 +542,7 @@ ngx_lua_dbd_get_connection(ngx_lua_thread_t *thr, ngx_str_t *name)
     ngx_lua_dbd_pool_conf_t   *conf;
     ngx_lua_dbd_connection_t  *c;
 
-    ldcf = ngx_lua_get_conf(ngx_cycle, ngx_lua_dbd_module);
+    ldcf = ngx_lua_thread_get_conf(thr, ngx_lua_dbd_module);
 
     ngx_shmtx_lock(&ldcf->dbd_pool->mutex);
 
@@ -1143,6 +1146,35 @@ ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data)
 }
 
 
+static ngx_int_t
+ngx_lua_dbd_module_init(ngx_cycle_t *cycle)
+{
+    int              n;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua dbd module init");
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
+
+    n = sizeof(ngx_lua_dbd_methods) / sizeof(luaL_Reg) - 1;
+
+    lua_createtable(lcf->l, 0, n);
+
+    for (n = 0; ngx_lua_dbd_methods[n].name != NULL; n++) {
+        lua_pushcfunction(lcf->l, ngx_lua_dbd_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_dbd_methods[n].name);
+    }
+
+    lua_setfield(lcf->l, -2, "database");
+
+    lua_pop(lcf->l, 1);
+
+    return NGX_OK;
+}
+
+
 static void *
 ngx_lua_dbd_create_conf(ngx_cycle_t *cycle)
 {
@@ -1160,24 +1192,29 @@ ngx_lua_dbd_create_conf(ngx_cycle_t *cycle)
 
 
 static char *
-ngx_lua_dbd_set_directive(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+ngx_lua_dbd_init_conf(ngx_cycle_t *cycle, void *conf)
+{
+    /* TODO */
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_lua_dbd_conf_t *ldcf = conf;
 
     ngx_str_t   *value, str;
     ngx_uint_t   i;
 
-    value = cf->args->elts;
-
-    if (ngx_strncmp(value[1].data, "lua_dbd", 7) != 0) {
-        return (char *) NGX_DECLINED;
-    }
-
     if (ldcf->dbd_name.data != NULL) {
         return "is duplicate";
     }
 
-    for (i = 2; i < cf->args->nelts; i++) {
+    value = cf->args->elts;
+
+    for (i = 1; i < cf->args->nelts; i++) {
 
         if (ngx_strncmp(value[i].data, "name=", 5) == 0) {
             ldcf->dbd_name.len = value[i].len - 5;

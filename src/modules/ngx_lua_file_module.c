@@ -30,8 +30,6 @@ struct ngx_lua_file_cleanup_ctx_s {
 };
 
 
-static ngx_int_t ngx_lua_file_module_init(ngx_cycle_t *cycle);
-
 static int ngx_lua_file_open(lua_State *l);
 static int ngx_lua_file_close(lua_State *l);
 static int ngx_lua_file_read(lua_State *l);
@@ -50,6 +48,8 @@ static void ngx_lua_file_write_handler(ngx_event_t *ev);
 #endif
 
 static void ngx_lua_file_cleanup(void *data);
+
+static ngx_int_t ngx_lua_file_module_init(ngx_cycle_t *cycle);
 
 
 static ngx_lua_const_t  ngx_lua_file_consts[] = {
@@ -81,67 +81,34 @@ static luaL_Reg  ngx_lua_file_methods[] = {
 };
 
 
-ngx_lua_module_t  ngx_lua_file_module = {
-    0,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    ngx_lua_file_module_init,
-    NULL,
-    NULL
+ngx_module_t  ngx_lua_file_module = {
+    NGX_MODULE_V1,
+    NULL,                                  /* module context */
+    NULL,                                  /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    ngx_lua_file_module_init,              /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
 };
 
 
 #if (NGX_LUA_DLL)
-ngx_lua_module_t  *module = &ngx_lua_file_module;
-#endif
-
-
-static ngx_int_t
-ngx_lua_file_module_init(ngx_cycle_t *cycle)
+ngx_module_t **
+ngx_lua_get_modules(void)
 {
-    int              n;
-    ngx_lua_conf_t  *lcf;
+    static ngx_module_t  *modules[] = {
+        &ngx_lua_file_module,
+        NULL
+    };
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua file module init");
-
-    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
-
-    lua_getglobal(lcf->l, "nginx");
-
-    luaL_newmetatable(lcf->l, NGX_LUA_FILE);
-    lua_pushvalue(lcf->l, -1);
-    lua_setfield(lcf->l, -2, "__index");
-
-    for (n = 0; ngx_lua_file_methods[n].name != NULL; n++) {
-        lua_pushcfunction(lcf->l, ngx_lua_file_methods[n].func);
-        lua_setfield(lcf->l, -2, ngx_lua_file_methods[n].name);
-    }
-
-    lua_pop(lcf->l, 1);
-
-    n = sizeof(ngx_lua_file_consts) / sizeof(ngx_lua_const_t) - 1;
-    n += 2;
-
-    lua_createtable(lcf->l, 0, n);
-
-    for (n = 0; ngx_lua_file_consts[n].name != NULL; n++) {
-        lua_pushinteger(lcf->l, ngx_lua_file_consts[n].value);
-        lua_setfield(lcf->l, -2, ngx_lua_file_consts[n].name);
-    }
-
-    lua_pushcfunction(lcf->l, ngx_lua_file_open);
-    lua_setfield(lcf->l, -2, "open");
-    lua_pushcfunction(lcf->l, ngx_lua_file_info);
-    lua_setfield(lcf->l, -2, "attributes");
-
-    lua_setfield(lcf->l, -2, "file");
-
-    lua_pop(lcf->l, 1);
-
-    return NGX_OK;
+    return modules;
 }
+#endif
 
 
 static int
@@ -648,4 +615,50 @@ ngx_lua_file_cleanup(void *data)
         cln_ctx->ctx->thr = NULL;
         cln_ctx->ctx->cln_ctx = NULL;
     }
+}
+
+
+static ngx_int_t
+ngx_lua_file_module_init(ngx_cycle_t *cycle)
+{
+    int              n;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua file module init");
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
+
+    luaL_newmetatable(lcf->l, NGX_LUA_FILE);
+    lua_pushvalue(lcf->l, -1);
+    lua_setfield(lcf->l, -2, "__index");
+
+    for (n = 0; ngx_lua_file_methods[n].name != NULL; n++) {
+        lua_pushcfunction(lcf->l, ngx_lua_file_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_file_methods[n].name);
+    }
+
+    lua_pop(lcf->l, 1);
+
+    n = sizeof(ngx_lua_file_consts) / sizeof(ngx_lua_const_t) - 1;
+    n += 2;
+
+    lua_createtable(lcf->l, 0, n);
+
+    for (n = 0; ngx_lua_file_consts[n].name != NULL; n++) {
+        lua_pushinteger(lcf->l, ngx_lua_file_consts[n].value);
+        lua_setfield(lcf->l, -2, ngx_lua_file_consts[n].name);
+    }
+
+    lua_pushcfunction(lcf->l, ngx_lua_file_open);
+    lua_setfield(lcf->l, -2, "open");
+    lua_pushcfunction(lcf->l, ngx_lua_file_info);
+    lua_setfield(lcf->l, -2, "attributes");
+
+    lua_setfield(lcf->l, -2, "file");
+
+    lua_pop(lcf->l, 1);
+
+    return NGX_OK;
 }

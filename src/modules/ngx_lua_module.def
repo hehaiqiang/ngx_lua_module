@@ -1,4 +1,4 @@
 LIBRARY
 
 EXPORTS
-module
+ngx_lua_get_modules

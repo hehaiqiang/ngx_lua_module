@@ -9,8 +9,6 @@
 #include <ngx_lua_axis2c.h>
 
 
-static ngx_int_t ngx_lua_xml_module_init(ngx_cycle_t *cycle);
-
 static int ngx_lua_xml_parse(lua_State *l);
 static void ngx_lua_xml_parse_children(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, axiom_element_t *parent_elem);
@@ -20,6 +18,8 @@ static void ngx_lua_xml_serialize_tables(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent);
 static void ngx_lua_xml_serialize_table(lua_State *l, axutil_env_t *env,
     axiom_node_t *parent, char *name, int index);
+
+static ngx_int_t ngx_lua_xml_module_init(ngx_cycle_t *cycle);
 
 
 static ngx_lua_const_t  ngx_lua_xml_consts[] = {
@@ -34,58 +34,34 @@ static luaL_Reg  ngx_lua_xml_methods[] = {
 };
 
 
-ngx_lua_module_t  ngx_lua_xml_module = {
-    0,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    ngx_lua_xml_module_init,
-    NULL,
-    NULL
+ngx_module_t  ngx_lua_xml_module = {
+    NGX_MODULE_V1,
+    NULL,                                  /* module context */
+    NULL,                                  /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    ngx_lua_xml_module_init,               /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
 };
 
 
 #if (NGX_LUA_DLL)
-ngx_lua_module_t  *module = &ngx_lua_xml_module;
-#endif
-
-
-static ngx_int_t
-ngx_lua_xml_module_init(ngx_cycle_t *cycle)
+ngx_module_t **
+ngx_lua_get_modules(void)
 {
-    int              n;
-    ngx_lua_conf_t  *lcf;
+    static ngx_module_t  *modules[] = {
+        &ngx_lua_xml_module,
+        NULL
+    };
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua xml module init");
-
-    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
-
-    lua_getglobal(lcf->l, "nginx");
-
-    n = sizeof(ngx_lua_xml_consts) / sizeof(ngx_lua_const_t) - 1;
-    n += sizeof(ngx_lua_xml_methods) / sizeof(luaL_Reg) - 1;
-
-    lua_createtable(lcf->l, 0, n);
-
-    for (n = 0; ngx_lua_xml_consts[n].name != NULL; n++) {
-        lua_pushinteger(lcf->l, ngx_lua_xml_consts[n].value);
-        lua_setfield(lcf->l, -2, ngx_lua_xml_consts[n].name);
-    }
-
-    for (n = 0; ngx_lua_xml_methods[n].name != NULL; n++) {
-        lua_pushcfunction(lcf->l, ngx_lua_xml_methods[n].func);
-        lua_setfield(lcf->l, -2, ngx_lua_xml_methods[n].name);
-    }
-
-    lua_setfield(lcf->l, -2, "xml");
-
-    lua_pop(lcf->l, 1);
-
-    axutil_error_init();
-
-    return NGX_OK;
+    return modules;
 }
+#endif
 
 
 static int
@@ -449,4 +425,41 @@ ngx_lua_xml_serialize_table(lua_State *l, axutil_env_t *env,
     }
 
     lua_settop(l, top);
+}
+
+
+static ngx_int_t
+ngx_lua_xml_module_init(ngx_cycle_t *cycle)
+{
+    int              n;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua xml module init");
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
+
+    n = sizeof(ngx_lua_xml_consts) / sizeof(ngx_lua_const_t) - 1;
+    n += sizeof(ngx_lua_xml_methods) / sizeof(luaL_Reg) - 1;
+
+    lua_createtable(lcf->l, 0, n);
+
+    for (n = 0; ngx_lua_xml_consts[n].name != NULL; n++) {
+        lua_pushinteger(lcf->l, ngx_lua_xml_consts[n].value);
+        lua_setfield(lcf->l, -2, ngx_lua_xml_consts[n].name);
+    }
+
+    for (n = 0; ngx_lua_xml_methods[n].name != NULL; n++) {
+        lua_pushcfunction(lcf->l, ngx_lua_xml_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_xml_methods[n].name);
+    }
+
+    lua_setfield(lcf->l, -2, "xml");
+
+    lua_pop(lcf->l, 1);
+
+    axutil_error_init();
+
+    return NGX_OK;
 }

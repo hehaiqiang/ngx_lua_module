@@ -13,12 +13,20 @@
 #define NGX_LUA_MAX_MODULES  64
 
 
+typedef ngx_module_t **(*ngx_lua_get_modules_t)(void);
+
+
 static ngx_int_t ngx_lua_module_init(ngx_cycle_t *cycle);
+static ngx_int_t ngx_lua_master_init(ngx_log_t *log);
+static void ngx_lua_master_exit(ngx_cycle_t *cycle);
 static ngx_int_t ngx_lua_process_init(ngx_cycle_t *cycle);
 static void ngx_lua_process_exit(ngx_cycle_t *cycle);
+static ngx_int_t ngx_lua_thread_init(ngx_cycle_t *cycle);
+static void ngx_lua_thread_exit(ngx_cycle_t *cycle);
 
 static void *ngx_lua_create_conf(ngx_cycle_t *cycle);
 static char *ngx_lua_init_conf(ngx_cycle_t *cycle, void *conf);
+
 static char *ngx_lua_load_module(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 static char *ngx_lua_set_directive(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -71,34 +79,48 @@ ngx_module_t  ngx_lua_module = {
     &ngx_lua_module_ctx,                   /* module context */
     ngx_lua_commands,                      /* module directives */
     NGX_CORE_MODULE,                       /* module type */
-    NULL,                                  /* init master */
+    ngx_lua_master_init,                   /* init master */
     ngx_lua_module_init,                   /* init module */
     ngx_lua_process_init,                  /* init process */
-    NULL,                                  /* init thread */
-    NULL,                                  /* exit thread */
+    ngx_lua_thread_init,                   /* init thread */
+    ngx_lua_thread_exit,                   /* exit thread */
     ngx_lua_process_exit,                  /* exit process */
-    NULL,                                  /* exit master */
+    ngx_lua_master_exit,                   /* exit master */
     NGX_MODULE_V1_PADDING
 };
 
 
-extern ngx_lua_module_t  ngx_lua_cache_module;
-extern ngx_lua_module_t  ngx_lua_core_module;
-extern ngx_lua_module_t  ngx_lua_dahua_module;
-extern ngx_lua_module_t  ngx_lua_dbd_module;
-extern ngx_lua_module_t  ngx_lua_file_module;
-extern ngx_lua_module_t  ngx_lua_logger_module;
-extern ngx_lua_module_t  ngx_lua_request_module;
-extern ngx_lua_module_t  ngx_lua_response_module;
-extern ngx_lua_module_t  ngx_lua_session_module;
-extern ngx_lua_module_t  ngx_lua_smtp_module;
-extern ngx_lua_module_t  ngx_lua_socket_module;
-extern ngx_lua_module_t  ngx_lua_variable_module;
-extern ngx_lua_module_t  ngx_lua_webservice_module;
-extern ngx_lua_module_t  ngx_lua_xml_module;
+/* The eight fixed arguments */
+
+static ngx_uint_t  argument_number[] = {
+    NGX_CONF_NOARGS,
+    NGX_CONF_TAKE1,
+    NGX_CONF_TAKE2,
+    NGX_CONF_TAKE3,
+    NGX_CONF_TAKE4,
+    NGX_CONF_TAKE5,
+    NGX_CONF_TAKE6,
+    NGX_CONF_TAKE7
+};
 
 
-static ngx_lua_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
+extern ngx_module_t  ngx_lua_cache_module;
+extern ngx_module_t  ngx_lua_core_module;
+extern ngx_module_t  ngx_lua_dahua_module;
+extern ngx_module_t  ngx_lua_dbd_module;
+extern ngx_module_t  ngx_lua_file_module;
+extern ngx_module_t  ngx_lua_logger_module;
+extern ngx_module_t  ngx_lua_request_module;
+extern ngx_module_t  ngx_lua_response_module;
+extern ngx_module_t  ngx_lua_session_module;
+extern ngx_module_t  ngx_lua_smtp_module;
+extern ngx_module_t  ngx_lua_socket_module;
+extern ngx_module_t  ngx_lua_variable_module;
+extern ngx_module_t  ngx_lua_webservice_module;
+extern ngx_module_t  ngx_lua_xml_module;
+
+
+static ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_cache_module,
     &ngx_lua_core_module,
 #if !(NGX_LUA_DLL)
@@ -119,15 +141,16 @@ static ngx_lua_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
 };
 
 
-ngx_uint_t  ngx_lua_max_module;
+ngx_uint_t         ngx_lua_max_module;
+static ngx_uint_t  ngx_lua_max_handle;
 
 
 static ngx_int_t
 ngx_lua_module_init(ngx_cycle_t *cycle)
 {
-    ngx_uint_t           i;
+    ngx_uint_t           m;
+    ngx_module_t        *module;
     ngx_lua_conf_t      *lcf;
-    ngx_lua_module_t    *m;
     ngx_pool_cleanup_t  *cln;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua module init");
@@ -138,14 +161,18 @@ ngx_lua_module_init(ngx_cycle_t *cycle)
         return NGX_ERROR;
     }
 
-    for (i = 0; i < ngx_lua_max_module; i++) {
-        m = ngx_lua_modules[i];
+    for (m = 0; m < ngx_lua_max_module; m++) {
+        module = ngx_lua_modules[m];
 
-        if (m->init_module == NULL) {
+        if (module->type != NGX_CORE_MODULE) {
             continue;
         }
 
-        if (m->init_module(cycle) == NGX_ERROR) {
+        if (module->init_module == NULL) {
+            continue;
+        }
+
+        if (module->init_module(cycle) == NGX_ERROR) {
             ngx_lua_destroy(lcf);
             return NGX_ERROR;
         }
@@ -165,21 +192,41 @@ ngx_lua_module_init(ngx_cycle_t *cycle)
 
 
 static ngx_int_t
+ngx_lua_master_init(ngx_log_t *log)
+{
+    /* TODO */
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_lua_master_exit(ngx_cycle_t *cycle)
+{
+    /* TODO */
+}
+
+
+static ngx_int_t
 ngx_lua_process_init(ngx_cycle_t *cycle)
 {
-    ngx_uint_t         i;
-    ngx_lua_module_t  *m;
+    ngx_uint_t     m;
+    ngx_module_t  *module;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua process init");
 
-    for (i = 0; i < ngx_lua_max_module; i++) {
-        m = ngx_lua_modules[i];
+    for (m = 0; m < ngx_lua_max_module; m++) {
+        module = ngx_lua_modules[m];
 
-        if (m->init_process == NULL) {
+        if (module->type != NGX_CORE_MODULE) {
             continue;
         }
 
-        if (m->init_process(cycle) == NGX_ERROR) {
+        if (module->init_process == NULL) {
+            continue;
+        }
+
+        if (module->init_process(cycle) == NGX_ERROR) {
             return NGX_ERROR;
         }
     }
@@ -191,37 +238,68 @@ ngx_lua_process_init(ngx_cycle_t *cycle)
 static void
 ngx_lua_process_exit(ngx_cycle_t *cycle)
 {
-    ngx_uint_t         i;
-    ngx_lua_module_t  *m;
+    ngx_uint_t       m, h;
+    ngx_module_t    *module;
+    ngx_lua_conf_t  *lcf;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua process exit");
 
-    for (i = 0; i < ngx_lua_max_module; i++) {
-        m = ngx_lua_modules[i];
+    for (m = 0; m < ngx_lua_max_module; m++) {
+        module = ngx_lua_modules[m];
 
-        if (m->exit_process != NULL) {
-            m->exit_process(cycle);
+        if (module->type != NGX_CORE_MODULE) {
+            continue;
         }
 
-        if (m->handle != NULL) {
-            ngx_lua_dlclose(m->handle);
+        if (module->exit_process != NULL) {
+            module->exit_process(cycle);
         }
     }
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    for (h = 0; h < ngx_lua_max_handle; h++) {
+        if (lcf->handle[h] != NULL) {
+            ngx_lua_dlclose(lcf->handle[h]);
+        }
+    }
+}
+
+
+static ngx_int_t
+ngx_lua_thread_init(ngx_cycle_t *cycle)
+{
+    /* TODO */
+
+    return NGX_OK;
+}
+
+
+static void
+ngx_lua_thread_exit(ngx_cycle_t *cycle)
+{
+    /* TODO */
 }
 
 
 static void *
 ngx_lua_create_conf(ngx_cycle_t *cycle)
 {
-    void              *rv;
-    ngx_uint_t         i;
-    ngx_lua_conf_t    *lcf;
-    ngx_lua_module_t  *m;
+    void               *rv;
+    ngx_uint_t          m;
+    ngx_lua_conf_t     *lcf;
+    ngx_core_module_t  *module;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua create conf");
 
     lcf = ngx_pcalloc(cycle->pool, sizeof(ngx_lua_conf_t));
     if (lcf == NULL) {
+        return NULL;
+    }
+
+    lcf->handle = ngx_pcalloc(cycle->pool,
+                              sizeof(void *) * NGX_LUA_MAX_MODULES);
+    if (lcf->handle == NULL) {
         return NULL;
     }
 
@@ -231,23 +309,27 @@ ngx_lua_create_conf(ngx_cycle_t *cycle)
     }
 
     ngx_lua_max_module = 0;
-    for (i = 0; ngx_lua_modules[i] != NULL; i++) {
-        ngx_lua_modules[i]->index = ngx_lua_max_module++;
+    for (m = 0; ngx_lua_modules[m] != NULL; m++) {
+        ngx_lua_modules[m]->index = ngx_lua_max_module++;
     }
 
-    for (i = 0; i < ngx_lua_max_module; i++) {
-        m = ngx_lua_modules[i];
-
-        if (m->create_conf == NULL) {
+    for (m = 0; m < ngx_lua_max_module; m++) {
+        if (ngx_lua_modules[m]->type != NGX_CORE_MODULE) {
             continue;
         }
 
-        rv = m->create_conf(cycle);
+        module = ngx_lua_modules[m]->ctx;
+
+        if (module == NULL || module->create_conf == NULL) {
+            continue;
+        }
+
+        rv = module->create_conf(cycle);
         if (rv == NULL) {
             return NULL;
         }
 
-        lcf->conf[m->index] = rv;
+        lcf->conf[ngx_lua_modules[m]->index] = rv;
     }
 
 #if (NGX_WIN32)
@@ -263,20 +345,24 @@ ngx_lua_init_conf(ngx_cycle_t *cycle, void *conf)
 {
     ngx_lua_conf_t *lcf = conf;
 
-    char              *rc;
-    ngx_uint_t         i;
-    ngx_lua_module_t  *m;
+    char               *rc;
+    ngx_uint_t          m;
+    ngx_core_module_t  *module;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua init conf");
 
-    for (i = 0; i < ngx_lua_max_module; i++) {
-        m = ngx_lua_modules[i];
-
-        if (m->init_conf == NULL) {
+    for (m = 0; m < ngx_lua_max_module; m++) {
+        if (ngx_lua_modules[m]->type != NGX_CORE_MODULE) {
             continue;
         }
 
-        rc = m->init_conf(cycle, lcf->conf[m->index]);
+        module = ngx_lua_modules[m]->ctx;
+
+        if (module == NULL || module->init_conf == NULL) {
+            continue;
+        }
+
+        rc = module->init_conf(cycle, lcf->conf[ngx_lua_modules[m]->index]);
         if (rc != NGX_CONF_OK) {
             return rc;
         }
@@ -291,13 +377,17 @@ ngx_lua_load_module(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_lua_conf_t *lcf = conf;
 
-    void              *handle, *rv;
-    ngx_str_t         *value;
-    ngx_lua_module_t  *m;
+    void                    *handle, *rv;
+    ngx_str_t               *value;
+    ngx_module_t           **mp, *m;
+    ngx_core_module_t       *module;
+    ngx_lua_get_modules_t    get;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cf->log, 0, "lua load module");
 
-    if (ngx_lua_max_module >= NGX_LUA_MAX_MODULES) {
+    if (ngx_lua_max_module >= NGX_LUA_MAX_MODULES
+        || ngx_lua_max_handle >= NGX_LUA_MAX_MODULES)
+    {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "not allowing more modules can be loaded");
         return NGX_CONF_ERROR;
@@ -317,29 +407,57 @@ ngx_lua_load_module(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    m = *((ngx_lua_module_t **) ngx_lua_dlsym(handle, "module"));
-    if (m == NULL) {
+    get = (ngx_lua_get_modules_t) ngx_lua_dlsym(handle, "ngx_lua_get_modules");
+    if (get == NULL) {
         ngx_conf_log_error(NGX_LOG_ALERT, cf, ngx_errno,
-                           ngx_lua_dlsym_n " \"module\" in \"%V\" failed",
+                           ngx_lua_dlsym_n " \"ngx_lua_get_modules\" "
+                           "in \"%V\" failed",
                            &value[1]);
         ngx_lua_dlclose(handle);
         return NGX_CONF_ERROR;
     }
 
-    m->index = ngx_lua_max_module;
-    m->handle = handle;
+    mp = get();
+    if (mp == NULL) {
+        goto done;
+    }
 
-    if (m->create_conf != NULL) {
-        rv = m->create_conf(cf->cycle);
+    for (m = *mp; m != NULL; mp++, m = *mp) {
+
+        if (ngx_lua_max_module >= NGX_LUA_MAX_MODULES) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "not allowing more modules can be loaded");
+            return NGX_CONF_ERROR;
+        }
+
+        m->index = ngx_lua_max_module;
+
+        if (m->type != NGX_CORE_MODULE) {
+            goto next;
+        }
+
+        module = m->ctx;
+
+        if (module == NULL || module->create_conf == NULL) {
+            goto next;
+        }
+
+        rv = module->create_conf(cf->cycle);
         if (rv == NULL) {
             ngx_lua_dlclose(handle);
             return NGX_CONF_ERROR;
         }
 
         lcf->conf[m->index] = rv;
+
+next:
+
+        ngx_lua_modules[ngx_lua_max_module++] = m;
     }
 
-    ngx_lua_modules[ngx_lua_max_module++] = m;
+done:
+
+    lcf->handle[ngx_lua_max_handle++] = handle;
 
     return NGX_CONF_OK;
 }
@@ -350,24 +468,121 @@ ngx_lua_set_directive(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_lua_conf_t *lcf = conf;
 
-    char              *rc;
-    ngx_uint_t         i;
-    ngx_lua_module_t  *m;
+    char          *rv;
+    ngx_str_t     *value, *name;
+    ngx_uint_t     m, n, multi;
+    ngx_module_t  *module;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, cf->log, 0, "lua set directive");
 
-    for (i = 0; i < ngx_lua_max_module; i++) {
-        m = ngx_lua_modules[i];
+    value = cf->args->elts;
+    name = &value[1];
+    multi = 0;
 
-        if (m->set_directive == NULL) {
+    for (m = 0; m < ngx_lua_max_module; m++) {
+        module = ngx_lua_modules[m];
+
+        if (module->type != NGX_CORE_MODULE) {
             continue;
         }
 
-        rc = m->set_directive(cf, cmd, lcf->conf[m->index]);
-        if (rc != (char *) NGX_DECLINED) {
-            return rc;
+        cmd = module->commands;
+        if (cmd == NULL) {
+            continue;
+        }
+
+        for ( /* void */ ; cmd->name.len; cmd++) {
+
+            if (name->len != cmd->name.len) {
+                continue;
+            }
+
+            if (ngx_strcmp(name->data, cmd->name.data) != 0) {
+                continue;
+            }
+
+
+            /* is the directive's location right ? */
+
+            if (!(cmd->type & cf->cmd_type)) {
+                if (cmd->type & NGX_CONF_MULTI) {
+                    multi = 1;
+                    continue;
+                }
+
+                goto not_allowed;
+            }
+
+            /* is the directive's argument count right ? */
+
+            n = cf->args->nelts - 1;
+
+            if (!(cmd->type & NGX_CONF_ANY)) {
+
+                if (cmd->type & NGX_CONF_FLAG) {
+
+                    if (n != 2) {
+                        goto invalid;
+                    }
+
+                } else if (cmd->type & NGX_CONF_1MORE) {
+
+                    if (n < 2) {
+                        goto invalid;
+                    }
+
+                } else if (cmd->type & NGX_CONF_2MORE) {
+
+                    if (n < 3) {
+                        goto invalid;
+                    }
+
+                } else if (n > NGX_CONF_MAX_ARGS) {
+
+                    goto invalid;
+
+                } else if (!(cmd->type & argument_number[n - 1]))
+                {
+                    goto invalid;
+                }
+            }
+
+            cf->args->elts = value + 1;
+            cf->args->nelts = n;
+
+            rv = cmd->set(cf, cmd, lcf->conf[module->index]);
+
+            cf->args->elts = value;
+            cf->args->nelts = n + 1;
+
+            if (rv == NGX_CONF_OK || rv == NGX_CONF_ERROR) {
+                return rv;
+            }
+
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                               "\"%s\" directive %s", name->data, rv);
+
+            return NGX_CONF_ERROR;
         }
     }
 
-    return NGX_CONF_OK;
+    if (multi == 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "unknown directive \"%s\"", name->data);
+        return NGX_CONF_ERROR;
+    }
+
+not_allowed:
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "\"%s\" directive is not allowed here", name->data);
+    return NGX_CONF_ERROR;
+
+invalid:
+
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                       "invalid number of arguments in \"%s\" directive",
+                       name->data);
+
+    return NGX_CONF_ERROR;
 }

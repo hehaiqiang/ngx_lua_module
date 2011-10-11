@@ -44,8 +44,6 @@ struct ngx_lua_socket_cleanup_ctx_s {
 extern ngx_int_t ngx_udp_connect(ngx_udp_connection_t *uc);
 
 
-static ngx_int_t ngx_lua_socket_module_init(ngx_cycle_t *cycle);
-
 static int ngx_lua_socket_open(lua_State *l);
 static int ngx_lua_socket_close(lua_State *l);
 static int ngx_lua_socket_send(lua_State *l);
@@ -69,6 +67,8 @@ static int ngx_lua_socket_udp_recv(lua_State *l, ngx_lua_thread_t *thr,
     ngx_lua_socket_ctx_t *ctx);
 static void ngx_lua_socket_udp_read_handler(ngx_event_t *rev);
 
+static ngx_int_t ngx_lua_socket_module_init(ngx_cycle_t *cycle);
+
 
 static luaL_Reg  ngx_lua_socket_methods[] = {
     { "close", ngx_lua_socket_close },
@@ -79,61 +79,34 @@ static luaL_Reg  ngx_lua_socket_methods[] = {
 };
 
 
-ngx_lua_module_t  ngx_lua_socket_module = {
-    0,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    ngx_lua_socket_module_init,
-    NULL,
-    NULL
+ngx_module_t  ngx_lua_socket_module = {
+    NGX_MODULE_V1,
+    NULL,                                  /* module context */
+    NULL,                                  /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    ngx_lua_socket_module_init,            /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
 };
 
 
 #if (NGX_LUA_DLL)
-ngx_lua_module_t  *module = &ngx_lua_socket_module;
-#endif
-
-
-static ngx_int_t
-ngx_lua_socket_module_init(ngx_cycle_t *cycle)
+ngx_module_t **
+ngx_lua_get_modules(void)
 {
-    int              n;
-    ngx_lua_conf_t  *lcf;
+    static ngx_module_t  *modules[] = {
+        &ngx_lua_socket_module,
+        NULL
+    };
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua socket module init");
-
-    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
-
-    lua_getglobal(lcf->l, "nginx");
-
-    luaL_newmetatable(lcf->l, NGX_LUA_SOCKET);
-    lua_pushvalue(lcf->l, -1);
-    lua_setfield(lcf->l, -2, "__index");
-
-    for (n = 0; ngx_lua_socket_methods[n].name != NULL; n++) {
-        lua_pushcfunction(lcf->l, ngx_lua_socket_methods[n].func);
-        lua_setfield(lcf->l, -2, ngx_lua_socket_methods[n].name);
-    }
-
-    lua_pop(lcf->l, 1);
-
-    lua_createtable(lcf->l, 0, 3);
-
-    lua_pushinteger(lcf->l, NGX_LUA_SOCKET_TCP);
-    lua_setfield(lcf->l, -2, "TCP");
-    lua_pushinteger(lcf->l, NGX_LUA_SOCKET_UDP);
-    lua_setfield(lcf->l, -2, "UDP");
-    lua_pushcfunction(lcf->l, ngx_lua_socket_open);
-    lua_setfield(lcf->l, -2, "open");
-
-    lua_setfield(lcf->l, -2, "socket");
-
-    lua_pop(lcf->l, 1);
-
-    return NGX_OK;
+    return modules;
 }
+#endif
 
 
 static int
@@ -936,4 +909,44 @@ done:
     }
 
     ngx_lua_finalize(thr, rc);
+}
+
+
+static ngx_int_t
+ngx_lua_socket_module_init(ngx_cycle_t *cycle)
+{
+    int              n;
+    ngx_lua_conf_t  *lcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua socket module init");
+
+    lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
+
+    lua_getglobal(lcf->l, "nginx");
+
+    luaL_newmetatable(lcf->l, NGX_LUA_SOCKET);
+    lua_pushvalue(lcf->l, -1);
+    lua_setfield(lcf->l, -2, "__index");
+
+    for (n = 0; ngx_lua_socket_methods[n].name != NULL; n++) {
+        lua_pushcfunction(lcf->l, ngx_lua_socket_methods[n].func);
+        lua_setfield(lcf->l, -2, ngx_lua_socket_methods[n].name);
+    }
+
+    lua_pop(lcf->l, 1);
+
+    lua_createtable(lcf->l, 0, 3);
+
+    lua_pushinteger(lcf->l, NGX_LUA_SOCKET_TCP);
+    lua_setfield(lcf->l, -2, "TCP");
+    lua_pushinteger(lcf->l, NGX_LUA_SOCKET_UDP);
+    lua_setfield(lcf->l, -2, "UDP");
+    lua_pushcfunction(lcf->l, ngx_lua_socket_open);
+    lua_setfield(lcf->l, -2, "open");
+
+    lua_setfield(lcf->l, -2, "socket");
+
+    lua_pop(lcf->l, 1);
+
+    return NGX_OK;
 }

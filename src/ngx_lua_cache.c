@@ -42,23 +42,48 @@ static void ngx_lua_cache_insert_value(ngx_rbtree_node_t *temp,
     ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel);
 static ngx_lua_cache_code_t *ngx_lua_cache_lookup(ngx_lua_cache_conf_t *lccf,
     ngx_lua_thread_t *thr);
-static ngx_int_t ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data);
 static void ngx_lua_cache_expire(ngx_event_t *ev);
-static void *ngx_lua_cache_create_conf(ngx_cycle_t *cycle);
-static char *ngx_lua_cache_set_directive(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
+static ngx_int_t ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data);
+
 static ngx_int_t ngx_lua_cache_process_init(ngx_cycle_t *cycle);
+static void *ngx_lua_cache_create_conf(ngx_cycle_t *cycle);
+static char *ngx_lua_cache_init_conf(ngx_cycle_t *cycle, void *conf);
+static char *ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 
-ngx_lua_module_t  ngx_lua_cache_module = {
-    0,
-    NULL,
+static ngx_command_t  ngx_lua_cache_commands[] = {
+
+    { ngx_string("lua_cache"),
+      NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_TAKE3,
+      ngx_lua_cache,
+      0,
+      0,
+      NULL },
+
+      ngx_null_command
+};
+
+
+static ngx_core_module_t  ngx_lua_cache_module_ctx = {
+    ngx_string("cache"),
     ngx_lua_cache_create_conf,
-    NULL,
-    ngx_lua_cache_set_directive,
-    NULL,
-    ngx_lua_cache_process_init,
-    NULL
+    ngx_lua_cache_init_conf,
+};
+
+
+ngx_module_t  ngx_lua_cache_module = {
+    NGX_MODULE_V1,
+    &ngx_lua_cache_module_ctx,             /* module context */
+    ngx_lua_cache_commands,                /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    ngx_lua_cache_process_init,            /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
 };
 
 
@@ -71,7 +96,7 @@ ngx_lua_cache_get(ngx_lua_thread_t *thr)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua cache get");
 
-    lccf = ngx_lua_get_conf(ngx_cycle, ngx_lua_cache_module);
+    lccf = ngx_lua_thread_get_conf(thr, ngx_lua_cache_module);
 
     ngx_shmtx_lock(&lccf->cache_pool->mutex);
 
@@ -122,7 +147,7 @@ ngx_lua_cache_set(ngx_lua_thread_t *thr)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua cache set");
 
-    lccf = ngx_lua_get_conf(ngx_cycle, ngx_lua_cache_module);
+    lccf = ngx_lua_thread_get_conf(thr, ngx_lua_cache_module);
 
     ngx_shmtx_lock(&lccf->cache_pool->mutex);
 
@@ -272,6 +297,53 @@ ngx_lua_cache_lookup(ngx_lua_cache_conf_t *lccf, ngx_lua_thread_t *thr)
 }
 
 
+static void
+ngx_lua_cache_expire(ngx_event_t *ev)
+{
+    time_t                 now;
+    ngx_uint_t             i;
+    ngx_queue_t           *q;
+    ngx_lua_cache_conf_t  *lccf;
+    ngx_lua_cache_code_t  *code;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua cache expire");
+
+    lccf = ev->data;
+
+    if (!ngx_shmtx_trylock(&lccf->cache_pool->mutex)) {
+        goto done;
+    }
+
+    now = ngx_time();
+
+    for (i = 0; i < 2; i++) {
+        if (ngx_queue_empty(&lccf->cache->queue)) {
+            break;
+        }
+
+        q = ngx_queue_last(&lccf->cache->queue);
+        code = ngx_queue_data(q, ngx_lua_cache_code_t, queue);
+
+        if (code->expire >= now) {
+            break;
+        }
+
+        ngx_log_debug1(NGX_LOG_DEBUG_CORE, ev->log, 0,
+                       "lua cache expire node \"%V\"", &code->path);
+
+        ngx_queue_remove(&code->queue);
+        ngx_rbtree_delete(&lccf->cache->rbtree, &code->node);
+        ngx_slab_free_locked(lccf->cache_pool, code);
+    }
+
+    ngx_shmtx_unlock(&lccf->cache_pool->mutex);
+
+done:
+
+    ngx_add_timer(&lccf->cache_event, lccf->cache_expire * 1000 / 10);
+}
+
+
 static ngx_int_t
 ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data)
 {
@@ -320,50 +392,20 @@ ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data)
 }
 
 
-static void
-ngx_lua_cache_expire(ngx_event_t *ev)
+static ngx_int_t
+ngx_lua_cache_process_init(ngx_cycle_t *cycle)
 {
-    time_t                 now;
-    ngx_uint_t             i;
-    ngx_queue_t           *q;
     ngx_lua_cache_conf_t  *lccf;
-    ngx_lua_cache_code_t  *code;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua cache expire");
+    lccf = ngx_lua_get_conf(cycle, ngx_lua_cache_module);
 
-    lccf = ev->data;
-
-    if (!ngx_shmtx_trylock(&lccf->cache_pool->mutex)) {
-        goto done;
-    }
-
-    now = ngx_time();
-
-    for (i = 0; i < 2; i++) {
-        if (ngx_queue_empty(&lccf->cache->queue)) {
-            break;
-        }
-
-        q = ngx_queue_last(&lccf->cache->queue);
-        code = ngx_queue_data(q, ngx_lua_cache_code_t, queue);
-
-        if (code->expire >= now) {
-            break;
-        }
-
-        ngx_log_debug1(NGX_LOG_DEBUG_CORE, ev->log, 0,
-                       "lua cache expire node \"%V\"", &code->path);
-
-        ngx_queue_remove(&code->queue);
-        ngx_rbtree_delete(&lccf->cache->rbtree, &code->node);
-        ngx_slab_free_locked(lccf->cache_pool, code);
-    }
-
-    ngx_shmtx_unlock(&lccf->cache_pool->mutex);
-
-done:
+    lccf->cache_event.handler = ngx_lua_cache_expire;
+    lccf->cache_event.data = lccf;
+    lccf->cache_event.log = cycle->log;
 
     ngx_add_timer(&lccf->cache_event, lccf->cache_expire * 1000 / 10);
+
+    return NGX_OK;
 }
 
 
@@ -385,24 +427,29 @@ ngx_lua_cache_create_conf(ngx_cycle_t *cycle)
 
 
 static char *
-ngx_lua_cache_set_directive(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+ngx_lua_cache_init_conf(ngx_cycle_t *cycle, void *conf)
+{
+    /* TODO */
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_lua_cache_conf_t *lccf = conf;
 
     ngx_str_t   *value, str;
     ngx_uint_t   i;
 
-    value = cf->args->elts;
-
-    if (ngx_strncmp(value[1].data, "lua_cache", 9) != 0) {
-        return (char *) NGX_DECLINED;
-    }
-
     if (lccf->cache_name.data != NULL) {
         return "is duplicate";
     }
 
-    for (i = 2; i < cf->args->nelts; i++) {
+    value = cf->args->elts;
+
+    for (i = 1; i < cf->args->nelts; i++) {
 
         if (ngx_strncmp(value[i].data, "name=", 5) == 0) {
             lccf->cache_name.len = value[i].len - 5;
@@ -466,21 +513,4 @@ invalid:
                        "invalid parameter \"%V\" in lua_cache", &value[i]);
 
     return NGX_CONF_ERROR;
-}
-
-
-static ngx_int_t
-ngx_lua_cache_process_init(ngx_cycle_t *cycle)
-{
-    ngx_lua_cache_conf_t  *lccf;
-
-    lccf = ngx_lua_get_conf(cycle, ngx_lua_cache_module);
-
-    lccf->cache_event.handler = ngx_lua_cache_expire;
-    lccf->cache_event.data = lccf;
-    lccf->cache_event.log = cycle->log;
-
-    ngx_add_timer(&lccf->cache_event, lccf->cache_expire * 1000 / 10);
-
-    return NGX_OK;
 }
