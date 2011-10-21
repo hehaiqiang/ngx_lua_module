@@ -1,14 +1,15 @@
 ﻿<%
 local print = print
 local nginx = nginx
-local req = nginx.request
-local resp = nginx.response
+local http_srv = nginx.http_srv
+local req = http_srv.request
+local resp = http_srv.response
 local ws = nginx.webservice
 
-function call(body)
-  print(body, '<hr>')
+function Call(body)
+  print('\r\n\r\n\r\n\r\n', body, '\r\n')
 
-  return nginx.http({
+  local result, errstr = nginx.utils.http({
     method = "POST",
     url = "192.168.1.200:80/onvif/services",
     headers = {
@@ -20,9 +21,13 @@ function call(body)
     },
     body = body
   })
+
+  print(result.body, '<hr>')
+
+  return result, errstr
 end
 
-function get_hostname()
+function GetHostname()
   local soap, errstr = ws.serialize({
     body = {
       GetHostname = {
@@ -32,27 +37,10 @@ function get_hostname()
     }
   })
   if not soap then print(errstr, '<hr>') return end
-
-  local result, errstr = call(soap)
-  if not result then print(errstr, '<hr>') return end
-  if result.status ~= resp.OK then return end
-
-  --print(result.body)
-
-  local result, errstr = ws.parse(result.body)
-  if not result then print(errstr, '<hr>') return end
-
-  local GetHostnameResponse = result.body.GetHostnameResponse
-  local HostnameInformation = GetHostnameResponse.children.HostnameInformation
-
-  local FromDHCP = HostnameInformation.children.FromDHCP
-  print('FromDHCP: ', FromDHCP.text, '<br/>')
-
-  local Name = HostnameInformation.children.Name
-  print('Name: ', Name.text)
+  local result, errstr = Call(soap)
 end
 
-function get_capabilites()
+function GetCapabilites()
   local soap, errstr = ws.serialize({
     body = {
       GetCapabilities = {
@@ -65,37 +53,10 @@ function get_capabilites()
     }
   })
   if not soap then print(errstr, '<hr>') return end
-
-  local result, errstr = call(soap)
-  if not result then print(errstr, '<hr>') return end
-  if result.status ~= resp.OK then return end
-
-  --print(result.body)
-
-  local result, errstr = ws.parse(result.body)
-  if not result then print(errstr, '<hr>') return end
-
-  local GetCapabilitiesResponse = result.body.GetCapabilitiesResponse
-  local Capabilities = GetCapabilitiesResponse.children.Capabilities
-
-  local Analytics = Capabilities.children.Analytics
-  local Device = Capabilities.children.Device
-  local Event = Capabilities.children.Event
-  local Imaging = Capabilities.children.Imaging
-
-  local Media = Capabilities.children.Media
-  local StreamingCapabilities = Media.children.StreamingCapabilities
-  local RTPMulticast = StreamingCapabilities.children.RTPMulticast
-  print(RTPMulticast.text, '\t')
-  local RTP_TCP = StreamingCapabilities.children.RTP_TCP
-  print(RTP_TCP.text, '\t')
-  local RTP_RTSP_TCP = StreamingCapabilities.children.RTP_RTSP_TCP
-  print(RTP_RTSP_TCP.text, '\t')
-
-  local PTZ = Capabilities.children.PTZ
+  local result, errstr = Call(soap)
 end
 
-function get_configurations()
+function GetConfigurations()
   local soap, errstr = ws.serialize({
     body = {
       GetConfigurations = {
@@ -105,20 +66,10 @@ function get_configurations()
     }
   })
   if not soap then print(errstr, '<hr>') return end
-
-  local result, errstr = call(soap)
-  if not result then print(errstr, '<hr>') return end
-  if result.status ~= resp.OK then return end
-
-  print(result.body)
-
-  local result, errstr = ws.parse(result.body)
-  if not result then print(errstr, '<hr>') return end
-
-  local GetConfigurationsResponse = result.body.GetConfigurationsResponse
+  local result, errstr = Call(soap)
 end
 
-function get_status()
+function GetStatus()
   local soap, errstr = ws.serialize({
     body = {
       GetStatus = {
@@ -131,20 +82,10 @@ function get_status()
     }
   })
   if not soap then print(errstr, '<hr>') return end
-
-  local result, errstr = call(soap)
-  if not result then print(errstr, '<hr>') return end
-  --if result.status ~= resp.OK then return end
-
-  print(result.body)
-
-  --local result, errstr = ws.parse(result.body)
-  --if not result then print(errstr, '<hr>') return end
-
-  --local GetProfilesResponse = result.body.GetProfilesResponse
+  local result, errstr = Call(soap)
 end
 
-function get_profiles()
+function GetProfiles()
   local soap, errstr = ws.serialize({
     body = {
       GetProfiles = {
@@ -154,62 +95,220 @@ function get_profiles()
     }
   })
   if not soap then print(errstr, '<hr>') return end
-
-  local result, errstr = call(soap)
-  if not result then print(errstr, '<hr>') return end
-  if result.status ~= resp.OK then return end
-
-  --print(result.body)
-
-  local result, errstr = ws.parse(result.body)
-  if not result then print(errstr, '<hr>') return end
-
-  local GetProfilesResponse = result.body.GetProfilesResponse
-
-  for i, Profiles in ipairs(GetProfilesResponse.children) do
-    --print(Profiles.attributes.token, '<br/>')
-
-    local Name = Profiles.children.Name
-    print('Name: ', Name.text, '<br/>')
-
-    local VideoSourceConfiguration = Profiles.children.VideoSourceConfiguration
-    local Name = VideoSourceConfiguration.children.Name
-    print(Name.text, '\t')
-    local UseCount = VideoSourceConfiguration.children.UseCount
-    print(UseCount.text, '\t')
-    local SourceToken = VideoSourceConfiguration.children.SourceToken
-    print(SourceToken.text, '\t')
-    local Bounds = VideoSourceConfiguration.children.Bounds
-    local attrs = Bounds.attributes
-    print(attrs.height, '\t', attrs.width, '\t', attrs.y, '\t', attrs.x)
-    print('<br/>')
-
-    local VideoEncoderConfiguration = Profiles.children.VideoEncoderConfiguration
-    --print(VideoEncoderConfiguration.attributes.token, '\t')
-    local Name = VideoEncoderConfiguration.children.Name
-    --print(Name.text, '\t')
-    local UseCount = VideoEncoderConfiguration.children.UseCount
-    print(UseCount.text, '\t')
-    local Encoding = VideoEncoderConfiguration.children.Encoding
-    print(Encoding.text, '\t')
-
-    local Resolution = VideoEncoderConfiguration.children.Resolution
-    local Width = Resolution.children.Width
-    print('Width:', Width.text, '\t')
-    local Height = Resolution.children.Height
-    print('Height:', Height.text, '\t')
-
-    local Quality = VideoEncoderConfiguration.children.Quality
-    print(Quality.text, '\t')
-    local RateControl = VideoEncoderConfiguration.children.RateControl
-    local H264 = VideoEncoderConfiguration.children.H264
-    local Multicast = VideoEncoderConfiguration.children.Multicast
-    local SessionTimeout = VideoEncoderConfiguration.children.SessionTimeout
-    print(SessionTimeout.text, '\t')
-  end
+  local result, errstr = Call(soap)
 end
 
-function get_snapshot_uri()
+function GetVideoSources()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetVideoSources = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt"
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetVideoSourceConfigurations()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetVideoSourceConfigurations = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt"
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetVideoSourceConfiguration()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetVideoSourceConfiguration = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt",
+        children = {
+          ConfigurationToken = { prefix = 'trt', text = '0' },
+        }
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetVideoSourceConfigurationOptions()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetVideoSourceConfigurationOptions = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt",
+        children = {
+          --ConfigurationToken = { prefix = 'trt', text = '0' },
+          --ProfileToken = { prefix = 'trt', text = 'mobile_h264' },
+        }
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetVideoEncoderConfigurations()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetVideoEncoderConfigurations = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt"
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetVideoEncoderConfiguration()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetVideoEncoderConfiguration = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt",
+        children = {
+          ConfigurationToken = { prefix = 'trt', text = '0' },
+        }
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetVideoEncoderConfigurationOptions()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetVideoEncoderConfigurationOptions = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt",
+        children = {
+          --ConfigurationToken = { prefix = 'trt', text = '0' },
+          --ProfileToken = { prefix = 'trt', text = 'mobile_h264' },
+        }
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetAudioSources()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetAudioSources = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt"
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetAudioSourceConfigurations()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetAudioSourceConfigurations = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt"
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetAudioSourceConfiguration()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetAudioSourceConfiguration = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt",
+        children = {
+          ConfigurationToken = { prefix = 'trt', text = '0' },
+        }
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetAudioSourceConfigurationOptions()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetAudioSourceConfigurationOptions = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt",
+        children = {
+          --ConfigurationToken = { prefix = 'trt', text = '0' },
+          --ProfileToken = { prefix = 'trt', text = 'mobile_h264' },
+        }
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetAudioEncoderConfigurations()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetAudioEncoderConfigurations = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt"
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetAudioEncoderConfiguration()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetAudioEncoderConfiguration = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt",
+        children = {
+          ConfigurationToken = { prefix = 'trt', text = '0' },
+        }
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetAudioEncoderConfigurationOptions()
+  local soap, errstr = ws.serialize({
+    body = {
+      GetAudioEncoderConfigurationOptions = {
+        uri = "http://www.onvif.org/ver10/media/wsdl",
+        prefix = "trt",
+        children = {
+          --ConfigurationToken = { prefix = 'trt', text = '0' },
+          --ProfileToken = { prefix = 'trt', text = 'mobile_h264' },
+        }
+      }
+    }
+  })
+  if not soap then print(errstr, '<hr>') return end
+  local result, errstr = Call(soap)
+end
+
+function GetSnapshotUri()
   local soap, errstr = ws.serialize({
     body = {
       GetSnapshotUri = {
@@ -221,23 +320,10 @@ function get_snapshot_uri()
     }
   })
   if not soap then print(errstr, '<hr>') return end
-
-  local result, errstr = call(soap)
-  if not result then print(errstr, '<hr>') return end
-  --if result.status ~= resp.OK then return end
-
-  --print(result.body)
-
-  local result, errstr = ws.parse(result.body)
-  if not result then print(errstr, '<hr>') return end
-
-  local GetSnapshotUriResponse = result.body.GetSnapshotUriResponse
-  local MediaUri = GetSnapshotUriResponse.children.MediaUri
-  local Uri = MediaUri.children.Uri
-  print(Uri.text, '<br/>')
+  local result, errstr = Call(soap)
 end
 
-function get_stream_uri()
+function GetStreamUri()
   local soap, errstr = ws.serialize({
     body = {
       GetStreamUri = {
@@ -260,23 +346,10 @@ function get_stream_uri()
     }
   })
   if not soap then print(errstr, '<hr>') return end
-
-  local result, errstr = call(soap)
-  if not result then print(errstr, '<hr>') return end
-  if result.status ~= resp.OK then return end
-
-  print(result.body)
-
-  local result, errstr = ws.parse(result.body)
-  if not result then print(errstr, '<hr>') return end
-
-  local GetStreamUriResponse = result.body.GetStreamUriResponse
-  local MediaUri = GetStreamUriResponse.children.MediaUri
-  local Uri = MediaUri.children.Uri
-  print(Uri.text)
+  local result, errstr = Call(soap)
 end
 
-function system_reboot()
+function SystemReboot()
   local soap, errstr = ws.serialize({
     body = {
       SystemReboot = {
@@ -286,44 +359,34 @@ function system_reboot()
     }
   })
   if not soap then print(errstr, '<hr>') return end
-
-  local result, errstr = call(soap)
-  if not result then print(errstr, '<hr>') return end
-  if result.status ~= resp.OK then return end
-
-  --print(result.body)
-
-  local result, errstr = ws.parse(result.body)
-  if not result then print(errstr, '<hr>') return end
-
-  local SystemRebootResponse = result.body.SystemRebootResponse
-
-  local Message = SystemRebootResponse.children.Message
-  print('Message: ', Message.text, '<br/>')
+  local result, errstr = Call(soap)
 end
 
---get_hostname()
---print('<hr>')
+--GetHostname()
+--GetCapabilites()
+--GetConfigurations()
+--GetStatus()
+--GetProfiles()
 
---get_capabilites()
---print('<hr>')
+GetVideoSources()
+--GetVideoSourceConfigurations()
+--GetVideoSourceConfiguration()
+--GetVideoSourceConfigurationOptions()
+--GetVideoEncoderConfigurations()
+--GetVideoEncoderConfiguration()
+--GetVideoEncoderConfigurationOptions()
 
---get_configurations()
---print('<hr>')
+GetAudioSources()
+--GetAudioSourceConfigurations()
+--GetAudioSourceConfiguration()
+--GetAudioSourceConfigurationOptions()
+--GetAudioEncoderConfigurations()
+--GetAudioEncoderConfiguration()
+--GetAudioEncoderConfigurationOptions()
 
-get_status()
-print('<hr>')
-
---get_profiles()
---print('<hr>')
-
---get_snapshot_uri()
---print('<hr>')
-
---get_stream_uri()
---print('<hr>')
-
---system_reboot()
+--GetSnapshotUri()
+--GetStreamUri()
+--SystemReboot()
 %>
 <html>
 <head>

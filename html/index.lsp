@@ -1,5 +1,5 @@
 ﻿<%
-local req = nginx.request
+local req = nginx.http_srv.request
 
 if req.method == req.GET then
   name = req.get['name']

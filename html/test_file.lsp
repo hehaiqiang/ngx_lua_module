@@ -2,7 +2,7 @@
 local print = print
 local nginx = nginx
 local file = nginx.file
-local req = nginx.request
+local req = nginx.http_srv.request
 
 local f, errstr = file.open('c:/test.txt')
 if not f then print(errstr) return end

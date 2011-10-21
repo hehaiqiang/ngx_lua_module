@@ -438,7 +438,7 @@ ngx_lua_xml_module_init(ngx_cycle_t *cycle)
 
     lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
 
-    lua_getglobal(lcf->l, "nginx");
+    lua_getglobal(lcf->l, NGX_LUA_TABLE);
 
     n = sizeof(ngx_lua_xml_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_xml_methods) / sizeof(luaL_Reg) - 1;

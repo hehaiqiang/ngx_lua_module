@@ -28,13 +28,13 @@ typedef struct {
 
 
 typedef struct {
-    ngx_str_t             cache_name;
-    size_t                cache_size;
-    time_t                cache_expire;
+    ngx_str_t             name;
+    size_t                size;
+    time_t                expire;
     ngx_lua_cache_t      *cache;
-    ngx_slab_pool_t      *cache_pool;
-    ngx_shm_zone_t       *cache_zone;
-    ngx_event_t           cache_event;
+    ngx_slab_pool_t      *pool;
+    ngx_shm_zone_t       *zone;
+    ngx_event_t           event;
 } ngx_lua_cache_conf_t;
 
 
@@ -98,11 +98,11 @@ ngx_lua_cache_get(ngx_lua_thread_t *thr)
 
     lccf = ngx_lua_thread_get_conf(thr, ngx_lua_cache_module);
 
-    ngx_shmtx_lock(&lccf->cache_pool->mutex);
+    ngx_shmtx_lock(&lccf->pool->mutex);
 
     code = ngx_lua_cache_lookup(lccf, thr);
     if (code == NULL) {
-        ngx_shmtx_unlock(&lccf->cache_pool->mutex);
+        ngx_shmtx_unlock(&lccf->pool->mutex);
         return NGX_DECLINED;
     }
 
@@ -119,19 +119,19 @@ ngx_lua_cache_get(ngx_lua_thread_t *thr)
     {
         ngx_queue_remove(&code->queue);
         ngx_rbtree_delete(&lccf->cache->rbtree, &code->node);
-        ngx_slab_free_locked(lccf->cache_pool, code);
+        ngx_slab_free_locked(lccf->pool, code);
 
-        ngx_shmtx_unlock(&lccf->cache_pool->mutex);
+        ngx_shmtx_unlock(&lccf->pool->mutex);
         return NGX_DECLINED;
     }
 
     thr->buf->last = ngx_cpymem(thr->buf->pos, code->code.data, code->code.len);
 
     ngx_queue_remove(&code->queue);
-    code->expire = ngx_time() + lccf->cache_expire + 60;
+    code->expire = ngx_time() + lccf->expire + 60;
     ngx_queue_insert_head(&lccf->cache->queue, &code->queue);
 
-    ngx_shmtx_unlock(&lccf->cache_pool->mutex);
+    ngx_shmtx_unlock(&lccf->pool->mutex);
 
     return NGX_OK;
 }
@@ -149,15 +149,15 @@ ngx_lua_cache_set(ngx_lua_thread_t *thr)
 
     lccf = ngx_lua_thread_get_conf(thr, ngx_lua_cache_module);
 
-    ngx_shmtx_lock(&lccf->cache_pool->mutex);
+    ngx_shmtx_lock(&lccf->pool->mutex);
 
     code = ngx_lua_cache_lookup(lccf, thr);
     if (code != NULL) {
         ngx_queue_remove(&code->queue);
-        code->expire = ngx_time() + lccf->cache_expire + 60;
+        code->expire = ngx_time() + lccf->expire + 60;
         ngx_queue_insert_head(&lccf->cache->queue, &code->queue);
 
-        ngx_shmtx_unlock(&lccf->cache_pool->mutex);
+        ngx_shmtx_unlock(&lccf->pool->mutex);
         return NGX_OK;
     }
 
@@ -168,11 +168,11 @@ ngx_lua_cache_set(ngx_lua_thread_t *thr)
     ngx_log_debug1(NGX_LOG_DEBUG_CORE, thr->log, 0,
                    "lua cache node size:%uz", size);
 
-    p = ngx_slab_alloc_locked(lccf->cache_pool, size);
+    p = ngx_slab_alloc_locked(lccf->pool, size);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
                       "ngx_slab_alloc_locked() failed");
-        ngx_shmtx_unlock(&lccf->cache_pool->mutex);
+        ngx_shmtx_unlock(&lccf->pool->mutex);
         return NGX_ERROR;
     }
 
@@ -181,7 +181,7 @@ ngx_lua_cache_set(ngx_lua_thread_t *thr)
 
     ngx_memzero(code, sizeof(ngx_lua_cache_code_t));
 
-    code->expire = ngx_time() + lccf->cache_expire + 60;
+    code->expire = ngx_time() + lccf->expire + 60;
 
     code->path.len = thr->path.len;
     code->path.data = p;
@@ -199,7 +199,7 @@ ngx_lua_cache_set(ngx_lua_thread_t *thr)
     ngx_rbtree_insert(&lccf->cache->rbtree, &code->node);
     ngx_queue_insert_head(&lccf->cache->queue, &code->queue);
 
-    ngx_shmtx_unlock(&lccf->cache_pool->mutex);
+    ngx_shmtx_unlock(&lccf->pool->mutex);
 
     return NGX_OK;
 }
@@ -310,7 +310,7 @@ ngx_lua_cache_expire(ngx_event_t *ev)
 
     lccf = ev->data;
 
-    if (!ngx_shmtx_trylock(&lccf->cache_pool->mutex)) {
+    if (!ngx_shmtx_trylock(&lccf->pool->mutex)) {
         goto done;
     }
 
@@ -333,14 +333,14 @@ ngx_lua_cache_expire(ngx_event_t *ev)
 
         ngx_queue_remove(&code->queue);
         ngx_rbtree_delete(&lccf->cache->rbtree, &code->node);
-        ngx_slab_free_locked(lccf->cache_pool, code);
+        ngx_slab_free_locked(lccf->pool, code);
     }
 
-    ngx_shmtx_unlock(&lccf->cache_pool->mutex);
+    ngx_shmtx_unlock(&lccf->pool->mutex);
 
 done:
 
-    ngx_add_timer(&lccf->cache_event, lccf->cache_expire * 1000 / 10);
+    ngx_add_timer(&lccf->event, lccf->expire * 1000 / 10);
 }
 
 
@@ -356,23 +356,23 @@ ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data)
 
     if (olccf) {
         lccf->cache = olccf->cache;
-        lccf->cache_pool = olccf->cache_pool;
+        lccf->pool = olccf->pool;
         return NGX_OK;
     }
 
-    lccf->cache_pool = (ngx_slab_pool_t *) shm_zone->shm.addr;
+    lccf->pool = (ngx_slab_pool_t *) shm_zone->shm.addr;
 
     if (shm_zone->shm.exists) {
-        lccf->cache = lccf->cache_pool->data;
+        lccf->cache = lccf->pool->data;
         return NGX_OK;
     }
 
-    lccf->cache = ngx_slab_alloc(lccf->cache_pool, sizeof(ngx_lua_cache_t));
+    lccf->cache = ngx_slab_alloc(lccf->pool, sizeof(ngx_lua_cache_t));
     if (lccf->cache == NULL) {
         return NGX_ERROR;
     }
 
-    lccf->cache_pool->data = lccf->cache;
+    lccf->pool->data = lccf->cache;
 
     ngx_rbtree_init(&lccf->cache->rbtree, &lccf->cache->sentinel,
                     ngx_lua_cache_insert_value);
@@ -380,12 +380,12 @@ ngx_lua_cache_init(ngx_shm_zone_t *shm_zone, void *data)
 
     len = sizeof(" in lua cache \"\"") + shm_zone->shm.name.len;
 
-    lccf->cache_pool->log_ctx = ngx_slab_alloc(lccf->cache_pool, len);
-    if (lccf->cache_pool->log_ctx == NULL) {
+    lccf->pool->log_ctx = ngx_slab_alloc(lccf->pool, len);
+    if (lccf->pool->log_ctx == NULL) {
         return NGX_ERROR;
     }
 
-    ngx_sprintf(lccf->cache_pool->log_ctx, " in lua cache \"%V\"%Z",
+    ngx_sprintf(lccf->pool->log_ctx, " in lua cache \"%V\"%Z",
                 &shm_zone->shm.name);
 
     return NGX_OK;
@@ -399,11 +399,11 @@ ngx_lua_cache_process_init(ngx_cycle_t *cycle)
 
     lccf = ngx_lua_get_conf(cycle, ngx_lua_cache_module);
 
-    lccf->cache_event.handler = ngx_lua_cache_expire;
-    lccf->cache_event.data = lccf;
-    lccf->cache_event.log = cycle->log;
+    lccf->event.handler = ngx_lua_cache_expire;
+    lccf->event.data = lccf;
+    lccf->event.log = cycle->log;
 
-    ngx_add_timer(&lccf->cache_event, lccf->cache_expire * 1000 / 10);
+    ngx_add_timer(&lccf->event, lccf->expire * 1000 / 10);
 
     return NGX_OK;
 }
@@ -419,8 +419,8 @@ ngx_lua_cache_create_conf(ngx_cycle_t *cycle)
         return NULL;
     }
 
-    lccf->cache_size = NGX_CONF_UNSET_SIZE;
-    lccf->cache_expire = NGX_CONF_UNSET;
+    lccf->size = NGX_CONF_UNSET_SIZE;
+    lccf->expire = NGX_CONF_UNSET;
 
     return lccf;
 }
@@ -443,7 +443,7 @@ ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_str_t   *value, str;
     ngx_uint_t   i;
 
-    if (lccf->cache_name.data != NULL) {
+    if (lccf->name.data != NULL) {
         return "is duplicate";
     }
 
@@ -452,16 +452,16 @@ ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     for (i = 1; i < cf->args->nelts; i++) {
 
         if (ngx_strncmp(value[i].data, "name=", 5) == 0) {
-            lccf->cache_name.len = value[i].len - 5;
-            lccf->cache_name.data = value[i].data + 5;
+            lccf->name.len = value[i].len - 5;
+            lccf->name.data = value[i].data + 5;
             continue;
         }
 
         if (ngx_strncmp(value[i].data, "size=", 5) == 0) {
             str.len = value[i].len - 5;
             str.data = value[i].data + 5;
-            lccf->cache_size = ngx_parse_size(&str);
-            if (lccf->cache_size == (size_t) NGX_ERROR) {
+            lccf->size = ngx_parse_size(&str);
+            if (lccf->size == (size_t) NGX_ERROR) {
                 goto invalid;
             }
             continue;
@@ -470,8 +470,8 @@ ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         if (ngx_strncmp(value[i].data, "expire=", 7) == 0) {
             str.len = value[i].len - 7;
             str.data = value[i].data + 7;
-            lccf->cache_expire = ngx_parse_time(&str, 1);
-            if (lccf->cache_expire == NGX_ERROR) {
+            lccf->expire = ngx_parse_time(&str, 1);
+            if (lccf->expire == NGX_ERROR) {
                 goto invalid;
             }
             continue;
@@ -480,30 +480,30 @@ ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         goto invalid;
     }
 
-    if (lccf->cache_name.data == NULL) {
+    if (lccf->name.data == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "the directive \"lua_cache\" must be specified");
         return NGX_CONF_ERROR;
     }
 
-    ngx_conf_init_size_value(lccf->cache_size, 1024 * 1024 * 1);
-    ngx_conf_init_value(lccf->cache_expire, 30 * 60);
+    ngx_conf_init_size_value(lccf->size, 1024 * 1024 * 1);
+    ngx_conf_init_value(lccf->expire, 30 * 60);
 
-    lccf->cache_zone = ngx_shared_memory_add(cf, &lccf->cache_name,
-                                             lccf->cache_size, &ngx_lua_module);
-    if (lccf->cache_zone == NULL) {
+    lccf->zone = ngx_shared_memory_add(cf, &lccf->name, lccf->size,
+                                       &ngx_lua_module);
+    if (lccf->zone == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    if (lccf->cache_zone->data) {
+    if (lccf->zone->data) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "duplicate lua cache name \"%V\"",
-                           &lccf->cache_name);
+                           &lccf->name);
         return NGX_CONF_ERROR;
     }
 
-    lccf->cache_zone->init = ngx_lua_cache_init;
-    lccf->cache_zone->data = lccf;
+    lccf->zone->init = ngx_lua_cache_init;
+    lccf->zone->data = lccf;
 
     return NGX_CONF_OK;
 

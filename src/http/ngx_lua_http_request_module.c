@@ -49,11 +49,11 @@ static luaL_Reg  ngx_lua_request_methods[] = {
 };
 
 
-ngx_module_t  ngx_lua_request_module = {
+ngx_module_t  ngx_lua_http_request_module = {
     NGX_MODULE_V1,
     NULL,                                  /* module context */
     NULL,                                  /* module directives */
-    NGX_CORE_MODULE,                       /* module type */
+    NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     ngx_lua_request_module_init,           /* init module */
     NULL,                                  /* init process */
@@ -70,7 +70,7 @@ ngx_module_t **
 ngx_lua_get_modules(void)
 {
     static ngx_module_t  *modules[] = {
-        &ngx_lua_request_module,
+        &ngx_lua_http_request_module,
         NULL
     };
 
@@ -221,8 +221,7 @@ ngx_lua_request_post_index(lua_State *l)
                 return 1;
             }
 
-            lua_pushlstring(l, (char *) ctx->request_body.data,
-                            ctx->request_body.len);
+            lua_pushlstring(l, (char *) ctx->req_body.data, ctx->req_body.len);
             return 1;
         }
 
@@ -253,8 +252,7 @@ ngx_lua_request_post_index(lua_State *l)
         return 1;
     }
 
-    if (ngx_lua_request_get_posted_arg(&ctx->request_body, &key, &value)
-        != NGX_OK)
+    if (ngx_lua_request_get_posted_arg(&ctx->req_body, &key, &value) != NGX_OK)
     {
         lua_pushnil(l);
         return 1;
@@ -433,7 +431,7 @@ ngx_lua_request_copy_request_body(ngx_http_request_t *r,
     ngx_buf_t    *buf, *next;
     ngx_chain_t  *cl;
 
-    if (ctx->request_body.len) {
+    if (ctx->req_body.len) {
         return NGX_OK;
     }
 
@@ -442,8 +440,8 @@ ngx_lua_request_copy_request_body(ngx_http_request_t *r,
         buf = cl->buf;
 
         if (cl->next == NULL) {
-            ctx->request_body.len = buf->last - buf->pos;
-            ctx->request_body.data = buf->pos;
+            ctx->req_body.len = buf->last - buf->pos;
+            ctx->req_body.data = buf->pos;
 
             return NGX_OK;
         }
@@ -470,8 +468,8 @@ ngx_lua_request_copy_request_body(ngx_http_request_t *r,
         return NGX_DECLINED;
     }
 
-    ctx->request_body.len = len;
-    ctx->request_body.data = p;
+    ctx->req_body.len = len;
+    ctx->req_body.data = p;
 
     return NGX_OK;
 }
@@ -527,7 +525,8 @@ ngx_lua_request_module_init(ngx_cycle_t *cycle)
 
     lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
 
-    lua_getglobal(lcf->l, "nginx");
+    lua_getglobal(lcf->l, NGX_LUA_TABLE);
+    lua_getfield(lcf->l, -1, NGX_LUA_HTTP_TABLE);
 
     n = sizeof(ngx_lua_request_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_request_methods) / sizeof(luaL_Reg) - 1;
@@ -579,7 +578,7 @@ ngx_lua_request_module_init(ngx_cycle_t *cycle)
 
     lua_setfield(lcf->l, -2, "request");
 
-    lua_pop(lcf->l, 1);
+    lua_pop(lcf->l, 2);
 
     return NGX_OK;
 }

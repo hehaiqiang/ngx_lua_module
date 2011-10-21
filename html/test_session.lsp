@@ -1,7 +1,7 @@
 ﻿<%
 local print = print
 local nginx = nginx
-local session = nginx.session
+local session = nginx.http_srv.session
 
 session.create()
 session.set_param("test", 1)

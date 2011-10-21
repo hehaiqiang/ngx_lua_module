@@ -63,15 +63,18 @@ static ngx_lua_const_t  ngx_lua_response_consts[] = {
 
 static luaL_Reg  ngx_lua_response_methods[] = {
     { "write", ngx_lua_response_write },
+#if 0
+    sendfile
+#endif
     { NULL, NULL }
 };
 
 
-ngx_module_t  ngx_lua_response_module = {
+ngx_module_t  ngx_lua_http_response_module = {
     NGX_MODULE_V1,
     NULL,                                  /* module context */
     NULL,                                  /* module directives */
-    NGX_CORE_MODULE,                       /* module type */
+    NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     ngx_lua_response_module_init,          /* init module */
     NULL,                                  /* init process */
@@ -88,7 +91,7 @@ ngx_module_t **
 ngx_lua_get_modules(void)
 {
     static ngx_module_t  *modules[] = {
-        &ngx_lua_response_module,
+        &ngx_lua_http_response_module,
         NULL
     };
 
@@ -177,7 +180,8 @@ ngx_lua_response_module_init(ngx_cycle_t *cycle)
 
     lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
 
-    lua_getglobal(lcf->l, "nginx");
+    lua_getglobal(lcf->l, NGX_LUA_TABLE);
+    lua_getfield(lcf->l, -1, NGX_LUA_HTTP_TABLE);
 
     n = sizeof(ngx_lua_response_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_response_methods) / sizeof(luaL_Reg) - 1;
@@ -215,7 +219,7 @@ ngx_lua_response_module_init(ngx_cycle_t *cycle)
 
     lua_setfield(lcf->l, -2, "response");
 
-    lua_pop(lcf->l, 1);
+    lua_pop(lcf->l, 2);
 
     return NGX_OK;
 }

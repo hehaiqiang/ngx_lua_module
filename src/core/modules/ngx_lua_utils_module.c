@@ -13,7 +13,6 @@
 
 extern int ngx_lua_http(lua_State *l);
 
-static int ngx_lua_print(lua_State *l);
 static int ngx_lua_escape_uri(lua_State *l);
 static int ngx_lua_unescape_uri(lua_State *l);
 static int ngx_lua_encode_base64(lua_State *l);
@@ -24,7 +23,7 @@ static int ngx_lua_murmur_hash2(lua_State *l);
 static int ngx_lua_md5(lua_State *l);
 static int ngx_lua_sha1(lua_State *l);
 
-static ngx_int_t ngx_lua_core_module_init(ngx_cycle_t *cycle);
+static ngx_int_t ngx_lua_utils_module_init(ngx_cycle_t *cycle);
 
 
 static ngx_lua_const_t  ngx_lua_consts[] = {
@@ -50,19 +49,24 @@ static luaL_Reg  ngx_lua_methods[] = {
     { "md5", ngx_lua_md5 },
     { "sha1", ngx_lua_sha1 },
 
+#if 0
+    { "sleep", ngx_lua_sleep },
+    iconv
+#endif
+
     { "http", ngx_lua_http },
 
     { NULL, NULL }
 };
 
 
-ngx_module_t  ngx_lua_core_module = {
+ngx_module_t  ngx_lua_utils_module = {
     NGX_MODULE_V1,
     NULL,                                  /* module context */
     NULL,                                  /* module directives */
     NGX_CORE_MODULE,                       /* module type */
     NULL,                                  /* init master */
-    ngx_lua_core_module_init,              /* init module */
+    ngx_lua_utils_module_init,             /* init module */
     NULL,                                  /* init process */
     NULL,                                  /* init thread */
     NULL,                                  /* exit thread */
@@ -70,35 +74,6 @@ ngx_module_t  ngx_lua_core_module = {
     NULL,                                  /* exit master */
     NGX_MODULE_V1_PADDING
 };
-
-
-static int
-ngx_lua_print(lua_State *l)
-{
-    int                n, i;
-    ngx_str_t          str;
-    ngx_lua_thread_t  *thr;
-
-    thr = ngx_lua_thread(l);
-
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua print");
-
-    n = lua_gettop(l);
-
-    for (i = 1; i <= n; i++) {
-        str.data = (u_char *) luaL_checklstring(l, i, &str.len);
-
-        if (ngx_lua_output(thr, str.data, str.len) == NGX_ERROR) {
-            lua_pushboolean(l, 0);
-            lua_pushstring(l, "ngx_lua_output() failed");
-            return 2;
-        }
-    }
-
-    lua_pushboolean(l, 1);
-
-    return 1;
-}
 
 
 static int
@@ -389,24 +364,21 @@ ngx_lua_sha1(lua_State *l)
 
 
 static ngx_int_t
-ngx_lua_core_module_init(ngx_cycle_t *cycle)
+ngx_lua_utils_module_init(ngx_cycle_t *cycle)
 {
     int              n;
     ngx_lua_conf_t  *lcf;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua core module init");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua utils module init");
 
     lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
 
-    lua_pushnil(lcf->l);
-    lua_setglobal(lcf->l, "coroutine");
-
-    lua_register(lcf->l, "print", ngx_lua_print);
+    lua_getglobal(lcf->l, NGX_LUA_TABLE);
 
     n = sizeof(ngx_lua_consts) / sizeof(ngx_lua_const_t) - 1;
     n += sizeof(ngx_lua_methods) / sizeof(luaL_Reg) - 1;
 
-    lua_createtable(lcf->l, ngx_lua_max_module, n);
+    lua_createtable(lcf->l, 0, n);
 
     for (n = 0; ngx_lua_consts[n].name != NULL; n++) {
         lua_pushinteger(lcf->l, ngx_lua_consts[n].value);
@@ -418,7 +390,9 @@ ngx_lua_core_module_init(ngx_cycle_t *cycle)
         lua_setfield(lcf->l, -2, ngx_lua_methods[n].name);
     }
 
-    lua_setglobal(lcf->l, "nginx");
+    lua_setfield(lcf->l, -2, "utils");
+
+    lua_pop(lcf->l, 1);
 
     return NGX_OK;
 }

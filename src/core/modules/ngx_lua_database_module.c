@@ -49,13 +49,13 @@ typedef struct {
 
 
 typedef struct {
-    ngx_str_t                     dbd_name;
-    size_t                        dbd_size;
+    ngx_str_t                     name;
+    size_t                        size;
     ngx_lua_dbd_t                *dbd;
-    ngx_slab_pool_t              *dbd_pool;
-    ngx_shm_zone_t               *dbd_zone;
-    ngx_rbtree_t                  dbd_rbtree;
-    ngx_rbtree_node_t             dbd_sentinel;
+    ngx_slab_pool_t              *pool;
+    ngx_shm_zone_t               *zone;
+    ngx_rbtree_t                  rbtree;
+    ngx_rbtree_node_t             sentinel;
 } ngx_lua_dbd_conf_t;
 
 
@@ -222,7 +222,7 @@ ngx_lua_dbd_create_pool(lua_State *l)
 
     ldcf = ngx_lua_thread_get_conf(thr, ngx_lua_dbd_module);
 
-    ngx_shmtx_lock(&ldcf->dbd_pool->mutex);
+    ngx_shmtx_lock(&ldcf->pool->mutex);
 
     conf = ngx_lua_dbd_pool_lookup(ldcf, &name);
     if (conf != NULL) {
@@ -237,7 +237,7 @@ ngx_lua_dbd_create_pool(lua_State *l)
            + db.len + user.len + passwd.len
            + sizeof(ngx_uint_t);
 
-    p = ngx_slab_alloc_locked(ldcf->dbd_pool, size);
+    p = ngx_slab_alloc_locked(ldcf->pool, size);
     if (p == NULL) {
         ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
                       "ngx_slab_alloc_locked() failed");
@@ -283,7 +283,7 @@ ngx_lua_dbd_create_pool(lua_State *l)
 
 done:
 
-    ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+    ngx_shmtx_unlock(&ldcf->pool->mutex);
 
     lua_settop(l, n);
     lua_pushboolean(l, 1);
@@ -292,7 +292,7 @@ done:
 
 error:
 
-    ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+    ngx_shmtx_unlock(&ldcf->pool->mutex);
 
     lua_settop(l, n);
     lua_pushboolean(l, 0);
@@ -318,13 +318,13 @@ ngx_lua_dbd_destroy_pool(lua_State *l)
 
     ldcf = ngx_lua_thread_get_conf(thr, ngx_lua_dbd_module);
 
-    ngx_shmtx_lock(&ldcf->dbd_pool->mutex);
+    ngx_shmtx_lock(&ldcf->pool->mutex);
 
     conf = ngx_lua_dbd_pool_lookup(ldcf, &name);
 
     /* TODO */
 
-    ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+    ngx_shmtx_unlock(&ldcf->pool->mutex);
 
     return 0;
 }
@@ -544,24 +544,24 @@ ngx_lua_dbd_get_connection(ngx_lua_thread_t *thr, ngx_str_t *name)
 
     ldcf = ngx_lua_thread_get_conf(thr, ngx_lua_dbd_module);
 
-    ngx_shmtx_lock(&ldcf->dbd_pool->mutex);
+    ngx_shmtx_lock(&ldcf->pool->mutex);
 
     conf = ngx_lua_dbd_pool_lookup(ldcf, name);
     if (conf == NULL) {
-        ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+        ngx_shmtx_unlock(&ldcf->pool->mutex);
         return NULL;
     }
 
     drv = ngx_palloc(thr->pool, conf->drv.len + 1);
     if (drv == NULL) {
-        ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+        ngx_shmtx_unlock(&ldcf->pool->mutex);
         return NULL;
     }
     ngx_cpystrn(drv, conf->drv.data, conf->drv.len + 1);
 
     host = ngx_palloc(thr->pool, conf->host.len + 1);
     if (host == NULL) {
-        ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+        ngx_shmtx_unlock(&ldcf->pool->mutex);
         return NULL;
     }
     ngx_cpystrn(host, conf->host.data, conf->host.len + 1);
@@ -570,28 +570,28 @@ ngx_lua_dbd_get_connection(ngx_lua_thread_t *thr, ngx_str_t *name)
 
     db = ngx_palloc(thr->pool, conf->db.len + 1);
     if (db == NULL) {
-        ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+        ngx_shmtx_unlock(&ldcf->pool->mutex);
         return NULL;
     }
     ngx_cpystrn(db, conf->db.data, conf->db.len + 1);
 
     user = ngx_palloc(thr->pool, conf->user.len + 1);
     if (user == NULL) {
-        ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+        ngx_shmtx_unlock(&ldcf->pool->mutex);
         return NULL;
     }
     ngx_cpystrn(user, conf->user.data, conf->user.len + 1);
 
     passwd = ngx_palloc(thr->pool, conf->passwd.len + 1);
     if (passwd == NULL) {
-        ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+        ngx_shmtx_unlock(&ldcf->pool->mutex);
         return NULL;
     }
     ngx_cpystrn(passwd, conf->passwd.data, conf->passwd.len + 1);
 
     max_connections = conf->connection_n;
 
-    ngx_shmtx_unlock(&ldcf->dbd_pool->mutex);
+    ngx_shmtx_unlock(&ldcf->pool->mutex);
 
     dbd_pool = ngx_lua_dbd_lookup(ldcf, name);
     if (dbd_pool != NULL) {
@@ -630,7 +630,7 @@ ngx_lua_dbd_get_connection(ngx_lua_thread_t *thr, ngx_str_t *name)
     ngx_memcpy(dbd_pool->name.data, name->data, name->len);
 
     dbd_pool->node.key = ngx_crc32_short(name->data, name->len);
-    ngx_rbtree_insert(&ldcf->dbd_rbtree, &dbd_pool->node);
+    ngx_rbtree_insert(&ldcf->rbtree, &dbd_pool->node);
 
     ngx_queue_init(&dbd_pool->connections);
     ngx_queue_init(&dbd_pool->free_connections);
@@ -749,8 +749,8 @@ ngx_lua_dbd_lookup(ngx_lua_dbd_conf_t *ldcf, ngx_str_t *name)
 
     key = ngx_crc32_short(name->data, name->len);
 
-    node = ldcf->dbd_rbtree.root;
-    sentinel = ldcf->dbd_rbtree.sentinel;
+    node = ldcf->rbtree.root;
+    sentinel = ldcf->rbtree.sentinel;
 
     while (node != sentinel) {
 
@@ -1108,39 +1108,38 @@ ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data)
 
     if (oldcf) {
         ldcf->dbd = oldcf->dbd;
-        ldcf->dbd_pool = oldcf->dbd_pool;
+        ldcf->pool = oldcf->pool;
         return NGX_OK;
     }
 
-    ldcf->dbd_pool = (ngx_slab_pool_t *) shm_zone->shm.addr;
+    ldcf->pool = (ngx_slab_pool_t *) shm_zone->shm.addr;
 
     if (shm_zone->shm.exists) {
-        ldcf->dbd = ldcf->dbd_pool->data;
+        ldcf->dbd = ldcf->pool->data;
         return NGX_OK;
     }
 
-    ldcf->dbd = ngx_slab_alloc(ldcf->dbd_pool, sizeof(ngx_lua_dbd_t));
+    ldcf->dbd = ngx_slab_alloc(ldcf->pool, sizeof(ngx_lua_dbd_t));
     if (ldcf->dbd == NULL) {
         return NGX_ERROR;
     }
 
-    ldcf->dbd_pool->data = ldcf->dbd;
+    ldcf->pool->data = ldcf->dbd;
 
     ngx_rbtree_init(&ldcf->dbd->rbtree, &ldcf->dbd->sentinel,
                     ngx_lua_dbd_pool_insert_value);
 
     len = sizeof(" in lua dbd \"\"") + shm_zone->shm.name.len;
 
-    ldcf->dbd_pool->log_ctx = ngx_slab_alloc(ldcf->dbd_pool, len);
-    if (ldcf->dbd_pool->log_ctx == NULL) {
+    ldcf->pool->log_ctx = ngx_slab_alloc(ldcf->pool, len);
+    if (ldcf->pool->log_ctx == NULL) {
         return NGX_ERROR;
     }
 
-    ngx_sprintf(ldcf->dbd_pool->log_ctx, " in lua dbd \"%V\"%Z",
+    ngx_sprintf(ldcf->pool->log_ctx, " in lua dbd \"%V\"%Z",
                 &shm_zone->shm.name);
 
-    ngx_rbtree_init(&ldcf->dbd_rbtree, &ldcf->dbd_sentinel,
-                    ngx_lua_dbd_insert_value);
+    ngx_rbtree_init(&ldcf->rbtree, &ldcf->sentinel, ngx_lua_dbd_insert_value);
 
     return NGX_OK;
 }
@@ -1156,7 +1155,7 @@ ngx_lua_dbd_module_init(ngx_cycle_t *cycle)
 
     lcf = (ngx_lua_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_lua_module);
 
-    lua_getglobal(lcf->l, "nginx");
+    lua_getglobal(lcf->l, NGX_LUA_TABLE);
 
     n = sizeof(ngx_lua_dbd_methods) / sizeof(luaL_Reg) - 1;
 
@@ -1185,7 +1184,7 @@ ngx_lua_dbd_create_conf(ngx_cycle_t *cycle)
         return NULL;
     }
 
-    ldcf->dbd_size = NGX_CONF_UNSET_SIZE;
+    ldcf->size = NGX_CONF_UNSET_SIZE;
 
     return ldcf;
 }
@@ -1208,7 +1207,7 @@ ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_str_t   *value, str;
     ngx_uint_t   i;
 
-    if (ldcf->dbd_name.data != NULL) {
+    if (ldcf->name.data != NULL) {
         return "is duplicate";
     }
 
@@ -1217,16 +1216,16 @@ ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     for (i = 1; i < cf->args->nelts; i++) {
 
         if (ngx_strncmp(value[i].data, "name=", 5) == 0) {
-            ldcf->dbd_name.len = value[i].len - 5;
-            ldcf->dbd_name.data = value[i].data + 5;
+            ldcf->name.len = value[i].len - 5;
+            ldcf->name.data = value[i].data + 5;
             continue;
         }
 
         if (ngx_strncmp(value[i].data, "size=", 5) == 0) {
             str.len = value[i].len - 5;
             str.data = value[i].data + 5;
-            ldcf->dbd_size = ngx_parse_size(&str);
-            if (ldcf->dbd_size == (size_t) NGX_ERROR) {
+            ldcf->size = ngx_parse_size(&str);
+            if (ldcf->size == (size_t) NGX_ERROR) {
                 goto invalid;
             }
             continue;
@@ -1235,28 +1234,28 @@ ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         goto invalid;
     }
 
-    if (ldcf->dbd_name.data == NULL) {
+    if (ldcf->name.data == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "the directive \"lua_dbd\" must be specified");
         return NGX_CONF_ERROR;
     }
 
-    ngx_conf_init_size_value(ldcf->dbd_size, 1024 * 512);
+    ngx_conf_init_size_value(ldcf->size, 1024 * 512);
 
-    ldcf->dbd_zone = ngx_shared_memory_add(cf, &ldcf->dbd_name, ldcf->dbd_size,
-                                           &ngx_lua_module);
-    if (ldcf->dbd_zone == NULL) {
+    ldcf->zone = ngx_shared_memory_add(cf, &ldcf->name, ldcf->size,
+                                       &ngx_lua_module);
+    if (ldcf->zone == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    if (ldcf->dbd_zone->data) {
+    if (ldcf->zone->data) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "duplicate lua dbd name \"%V\"", &ldcf->dbd_name);
+                           "duplicate lua dbd name \"%V\"", &ldcf->name);
         return NGX_CONF_ERROR;
     }
 
-    ldcf->dbd_zone->init = ngx_lua_dbd_init;
-    ldcf->dbd_zone->data = ldcf;
+    ldcf->zone->init = ngx_lua_dbd_init;
+    ldcf->zone->data = ldcf;
 
     return NGX_CONF_OK;
 

@@ -1,7 +1,7 @@
 ﻿<%
 local print = print
 local nginx = nginx
-local req = nginx.request
+local req = nginx.http_srv.request
 local socket = nginx.socket
 
 function test_tcp()

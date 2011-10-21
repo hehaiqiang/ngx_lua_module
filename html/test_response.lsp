@@ -1,8 +1,9 @@
 ﻿<%
 local print = print
 local nginx = nginx
-local req = nginx.request
-local resp = nginx.response
+local http_srv = nginx.http_srv
+local req = http_srv.request
+local resp = http_srv.response
 resp.content_type = "text/html"
 %>
 <html>

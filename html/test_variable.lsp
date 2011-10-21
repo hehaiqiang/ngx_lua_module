@@ -1,7 +1,7 @@
 ﻿<%
 local print = print
 local nginx = nginx
-local var = nginx.variable
+local var = nginx.http_srv.variable
 local array = {
   --var.arg_PARAMETER or "",
   args = var.args or "",

@@ -9,6 +9,9 @@
 #include <ngx_lua.h>
 
 
+#define NGX_LUA_MAX_PARSERS  16
+
+
 #define NGX_LUA_FUNCTION_START   "return function() local print = print "
 #define NGX_LUA_FUNCTION_END     " end"
 
@@ -19,7 +22,101 @@
 #define NGX_LUA_EXP_PRINT_END    ") "
 
 
-ngx_int_t
+typedef struct {
+    ngx_uint_t    stub;
+} ngx_lua_parser_conf_t;
+
+
+static ngx_int_t ngx_lua_parse_default(ngx_lua_thread_t *thr);
+static ngx_int_t ngx_lua_parse_lsp(ngx_lua_thread_t *thr);
+
+static void *ngx_lua_parser_create_conf(ngx_cycle_t *cycle);
+static char *ngx_lua_parser_init_conf(ngx_cycle_t *cycle, void *conf);
+
+
+static ngx_core_module_t  ngx_lua_parser_module_ctx = {
+    ngx_string("parser"),
+    ngx_lua_parser_create_conf,
+    ngx_lua_parser_init_conf,
+};
+
+
+ngx_module_t  ngx_lua_parser_module = {
+    NGX_MODULE_V1,
+    &ngx_lua_parser_module_ctx,            /* module context */
+    NULL,                                  /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_lua_parser_t  ngx_lua_default_parser = {
+    ngx_string("default"),
+    ngx_lua_parse_default
+};
+
+
+static ngx_lua_parser_t  ngx_lua_lsp_parser = {
+    ngx_string("lsp"),
+    ngx_lua_parse_lsp
+};
+
+
+static ngx_lua_parser_t  *ngx_lua_parsers[NGX_LUA_MAX_PARSERS];
+static ngx_uint_t         ngx_lua_parser_n;
+
+
+ngx_lua_parser_pt
+ngx_lua_parser_find(ngx_log_t *log, ngx_str_t *name)
+{
+    ngx_uint_t         i;
+    ngx_lua_parser_t  *parser;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, log, 0, "lua parser find");
+
+    for (i = 0; i < ngx_lua_parser_n; i++) {
+        parser = ngx_lua_parsers[i];
+
+        if (parser->name.len == name->len
+            && ngx_strncmp(parser->name.data, name->data, name->len) == 0)
+        {
+            return parser->parser;
+        }
+    }
+
+    return NULL;
+}
+
+
+static ngx_int_t
+ngx_lua_parse_default(ngx_lua_thread_t *thr)
+{
+    u_char  *out;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua parse default");
+
+    out = ngx_cpymem(thr->buf->last, NGX_LUA_FUNCTION_START,
+                     sizeof(NGX_LUA_FUNCTION_START) - 1);
+
+    out = ngx_cpymem(out, thr->lsp->pos, thr->lsp->last - thr->lsp->pos);
+
+    out = ngx_cpymem(out, NGX_LUA_FUNCTION_END,
+                     sizeof(NGX_LUA_FUNCTION_END) - 1);
+
+    thr->buf->last = out;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_lua_parse_lsp(ngx_lua_thread_t *thr)
 {
     u_char      *p, ch, *out, *html_start, *lua_start, *lua_end;
@@ -297,4 +394,34 @@ ngx_lua_parse_lsp(ngx_lua_thread_t *thr)
     thr->buf->last = out;
 
     return NGX_OK;
+}
+
+
+static void *
+ngx_lua_parser_create_conf(ngx_cycle_t *cycle)
+{
+    ngx_lua_parser_conf_t  *lpcf;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua parser create conf");
+
+    lpcf = ngx_pcalloc(cycle->pool, sizeof(ngx_lua_parser_conf_t));
+    if (lpcf == NULL) {
+        return NULL;
+    }
+
+    ngx_lua_parsers[ngx_lua_parser_n++] = &ngx_lua_lsp_parser;
+    ngx_lua_parsers[ngx_lua_parser_n++] = &ngx_lua_default_parser;
+
+    return lpcf;
+}
+
+
+static char *
+ngx_lua_parser_init_conf(ngx_cycle_t *cycle, void *conf)
+{
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, cycle->log, 0, "lua parser init conf");
+
+    /* TODO */
+
+    return NGX_CONF_OK;
 }

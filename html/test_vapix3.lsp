@@ -2,7 +2,7 @@
 local print = print
 local nginx = nginx
 local file = nginx.file
-local req = nginx.request
+local req = nginx.http_srv.request
 
 --192.168.1.200:80/mjpg/1/video.mjpg
 

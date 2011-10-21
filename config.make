@@ -12,7 +12,7 @@ if [ $NGX_LUA_DLL = YES ]; then
     else
         ngx_lib=" \
             -link -dll -verbose:lib \
-            -def:$ngx_addon_dir/src/modules/ngx_lua_module.def \
+            -def:$ngx_addon_dir/src/core/ngx_lua_module.def \
             ws2_32.lib $NGX_OBJS${ngx_dirsep}nginx.lib"
     fi
 
@@ -21,6 +21,19 @@ if [ $NGX_LUA_DLL = YES ]; then
     if [ "$NGX_PLATFORM" != win32 ]; then
         ngx_cc="$ngx_cc -fPIC"
     fi
+
+    NGX_LUA_MODULE_SRCS=" \
+        $NGX_LUA_DAHUA_MODULE_SRCS \
+        $NGX_LUA_FILE_MODULE_SRCS \
+        $NGX_LUA_LOGGER_MODULE_SRCS \
+        $NGX_LUA_SMTP_MODULE_SRCS \
+        $NGX_LUA_SOCKET_MODULE_SRCS \
+        $NGX_LUA_HTTP_REQUEST_MODULE_SRCS \
+        $NGX_LUA_HTTP_RESPONSE_MODULE_SRCS \
+        $NGX_LUA_HTTP_SESSION_MODULE_SRCS \
+        $NGX_LUA_HTTP_VARIABLE_MODULE_SRCS"
+
+    ngx_sos=""
 
     for ngx_src in $NGX_LUA_MODULE_SRCS
     do
@@ -56,5 +69,9 @@ $ngx_so:	$ngx_obj$ngx_spacer
 ${ngx_long_end}
 
 END
+
+        ngx_sos="$ngx_sos$ngx_cont$ngx_so"
     done
+
+    echo $ngx_sos
 fi

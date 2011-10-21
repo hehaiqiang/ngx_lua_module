@@ -1,7 +1,7 @@
 ﻿<%
 local print = print
 local nginx = nginx
-local req = nginx.request
+local req = nginx.http_srv.request
 local smtp = nginx.smtp
 
 local rc, errstr = smtp.send({

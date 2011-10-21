@@ -1,7 +1,7 @@
 ﻿<%
 local print = print
 local nginx = nginx
-local req = nginx.request
+local req = nginx.http_srv.request
 local ws = nginx.webservice
 
 local soap, errstr = ws.serialize({
@@ -18,7 +18,7 @@ local soap, errstr = ws.serialize({
 if not soap then print(errstr) return end
 print(soap, '<hr>')
 
-local res, errstr = nginx.http({
+local res, errstr = nginx.utils.http({
   method = "POST",
   url = "www.webxml.com.cn/WebServices/WeatherWebService.asmx",
   headers = {

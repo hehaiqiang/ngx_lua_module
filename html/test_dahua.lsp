@@ -2,7 +2,7 @@
 local print = print
 local nginx = nginx
 local dahua = nginx.dahua
-local req = nginx.request
+local req = nginx.http_srv.request
 
 local dh, errstr = dahua.open('doc4gz.gnway.net:37777')
 if not dh then print(errstr) return end

@@ -3,7 +3,7 @@ local print = print
 local string = string
 local nginx = nginx
 local file = nginx.file
-local req = nginx.request
+local req = nginx.http_srv.request
 local socket = nginx.socket
 
 function ptz()

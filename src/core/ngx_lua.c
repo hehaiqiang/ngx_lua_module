@@ -14,14 +14,15 @@
 #define NGX_LUA_KEY_CODE  "ngx_lua_key_code"
 
 
-static void ngx_lua_handler(ngx_lua_thread_t *thr);
 static void ngx_lua_aio_handler(ngx_event_t *ev);
+static void ngx_lua_handler(ngx_lua_thread_t *thr);
 static const char *ngx_lua_reader(lua_State *l, void *data, size_t *size);
 static int ngx_lua_writer(lua_State *l, const void *buf, size_t size,
     void *data);
 
 static int ngx_lua_panic(lua_State *l);
 static void ngx_lua_set_path(lua_State *l, char *key, ngx_str_t *value);
+static int ngx_lua_print(lua_State *l);
 
 
 ngx_int_t
@@ -60,6 +61,14 @@ ngx_lua_create(ngx_cycle_t *cycle, ngx_lua_conf_t *lcf)
     lua_newtable(lcf->l);
     lua_setfield(lcf->l, LUA_REGISTRYINDEX, NGX_LUA_KEY_REF);
 
+    lua_register(lcf->l, "print", ngx_lua_print);
+
+    lua_pushnil(lcf->l);
+    lua_setglobal(lcf->l, "coroutine");
+
+    lua_createtable(lcf->l, ngx_lua_max_module, 0);
+    lua_setglobal(lcf->l, NGX_LUA_TABLE);
+
     return NGX_OK;
 }
 
@@ -75,7 +84,7 @@ ngx_lua_destroy(void *data)
 }
 
 
-static ngx_int_t
+ngx_int_t
 ngx_lua_thread_create(ngx_lua_thread_t *thr)
 {
     int              top;
@@ -135,6 +144,11 @@ ngx_lua_thread_destroy(ngx_lua_thread_t *thr)
     ngx_lua_conf_t  *lcf;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua thread destroy");
+
+    if (thr->file.fd != NGX_INVALID_FILE) {
+        ngx_close_file(thr->file.fd);
+        thr->file.fd = NGX_INVALID_FILE;
+    }
 
     if (thr->ref == LUA_NOREF) {
         return;
@@ -230,15 +244,51 @@ ngx_lua_thread(lua_State *l)
 }
 
 
-void
-ngx_lua_load(ngx_lua_thread_t *thr)
+ngx_int_t
+ngx_lua_check_script(ngx_lua_thread_t *thr)
 {
-    int          mode;
-    size_t       size;
-    ssize_t      n;
-    ngx_file_t  *file;
+    ngx_int_t          rc;
+    ngx_file_info_t    fi;
+    ngx_lua_script_t  *script;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua load");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua check script");
+
+    script = thr->script;
+
+    if (script->from == NGX_LUA_SCRIPT_FROM_CONF) {
+        thr->size = script->code.len;
+        thr->mtime = -1;
+
+    } else {
+
+        ngx_memzero(&fi, sizeof(ngx_file_info_t));
+
+        rc = (ngx_int_t) ngx_file_info(thr->path.data, &fi);
+
+        if (rc == NGX_FILE_ERROR) {
+            ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
+                          ngx_file_info_n " \"%V\" failed", &thr->path);
+            return NGX_ERROR;
+        }
+
+        thr->size = (size_t) ngx_file_size(&fi);
+        thr->mtime = ngx_file_mtime(&fi);
+    }
+
+    return NGX_OK;
+}
+
+
+void
+ngx_lua_load_script(ngx_lua_thread_t *thr)
+{
+    int                mode;
+    size_t             size;
+    ssize_t            n;
+    ngx_file_t        *file;
+    ngx_lua_script_t  *script;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua load script");
 
     /* TODO: size */
 
@@ -252,6 +302,22 @@ ngx_lua_load(ngx_lua_thread_t *thr)
 
     if (ngx_lua_cache_get(thr) == NGX_OK) {
         thr->cached = 1;
+        ngx_lua_handler(thr);
+        return;
+    }
+
+    script = thr->script;
+
+    if (script->from == NGX_LUA_SCRIPT_FROM_CONF) {
+        thr->lsp = ngx_calloc_buf(thr->pool);
+        if (thr->lsp == NULL) {
+            ngx_lua_finalize(thr, NGX_ERROR);
+            return;
+        }
+
+        thr->lsp->pos = script->code.data;
+        thr->lsp->last = script->code.data + script->code.len;
+
         ngx_lua_handler(thr);
         return;
     }
@@ -302,10 +368,34 @@ ngx_lua_load(ngx_lua_thread_t *thr)
         return;
     }
 
+    thr->lsp->last += n;
+
     ngx_close_file(file->fd);
     file->fd = NGX_INVALID_FILE;
 
-    thr->lsp->last += n;
+    ngx_lua_handler(thr);
+}
+
+
+static void
+ngx_lua_aio_handler(ngx_event_t *ev)
+{
+    ngx_event_aio_t   *aio;
+    ngx_lua_thread_t  *thr;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua aio handler");
+
+    aio = ev->data;
+    thr = aio->data;
+
+    /* TODO: error handling */
+
+    ev->complete = 0;
+
+    thr->lsp->last += ev->available;
+
+    ngx_close_file(thr->file.fd);
+    thr->file.fd = NGX_INVALID_FILE;
 
     ngx_lua_handler(thr);
 }
@@ -321,9 +411,8 @@ ngx_lua_handler(ngx_lua_thread_t *thr)
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua handler");
 
     if (!thr->cached) {
-        if (ngx_lua_parse(thr) == NGX_ERROR) {
-            ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
-                          "ngx_lua_parse() parsing error");
+        if (thr->script->parser(thr) == NGX_ERROR) {
+            ngx_log_error(NGX_LOG_ALERT, thr->log, 0, "parsing error");
             ngx_lua_finalize(thr, NGX_ERROR);
             return;
         }
@@ -391,30 +480,6 @@ ngx_lua_handler(ngx_lua_thread_t *thr)
         ngx_lua_finalize(thr, rc);
         return;
     }
-}
-
-
-static void
-ngx_lua_aio_handler(ngx_event_t *ev)
-{
-    ngx_event_aio_t   *aio;
-    ngx_lua_thread_t  *thr;
-
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua aio handler");
-
-    aio = ev->data;
-    thr = aio->data;
-
-    /* TODO: error handling */
-
-    ev->complete = 0;
-
-    thr->lsp->last += ev->available;
-
-    ngx_close_file(thr->file.fd);
-    thr->file.fd = NGX_INVALID_FILE;
-
-    ngx_lua_handler(thr);
 }
 
 
@@ -512,4 +577,33 @@ ngx_lua_set_path(lua_State *l, char *key, ngx_str_t *value)
     lua_setfield(l, -4, key);
 
     lua_pop(l, 2);
+}
+
+
+static int
+ngx_lua_print(lua_State *l)
+{
+    int                n, i;
+    ngx_str_t          str;
+    ngx_lua_thread_t  *thr;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua print");
+
+    n = lua_gettop(l);
+
+    for (i = 1; i <= n; i++) {
+        str.data = (u_char *) luaL_checklstring(l, i, &str.len);
+
+        if (ngx_lua_output(thr, str.data, str.len) == NGX_ERROR) {
+            lua_pushboolean(l, 0);
+            lua_pushstring(l, "ngx_lua_output() failed");
+            return 2;
+        }
+    }
+
+    lua_pushboolean(l, 1);
+
+    return 1;
 }

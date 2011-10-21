@@ -1,9 +1,9 @@
 ﻿<%
 local print = print
 local nginx = nginx
-local req = nginx.request
+local req = nginx.http_srv.request
 
-local res = nginx.http({
+local res = nginx.utils.http({
   url = 'www.nginx.org/index.html'
 })
 if res.status == nginx.ERROR then
