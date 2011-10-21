@@ -61,7 +61,6 @@ ngx_pool_cleanup_add
 ngx_pstrdup
 ngx_rbtree_delete
 ngx_rbtree_insert
-ngx_session_init
 ngx_shared_memory_add
 ngx_slprintf
 ngx_strlcasestrn

@@ -26,3 +26,8 @@ CONF_ARGS= \
 	--add-module=$(ADDON_DIR)
 
 include $(NGINX_DIR)/unix.mk
+
+modules:
+	(cd $(NGINX_DIR); \
+	$(MAKE) -f $(ADDON_DIR)/build/Makefile modules; \
+	cd $(ADDON_DIR));

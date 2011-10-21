@@ -73,5 +73,10 @@ END
         ngx_sos="$ngx_sos$ngx_cont$ngx_so"
     done
 
-    echo $ngx_sos
+        cat << END                                            >> $NGX_MAKEFILE
+
+modules:	$ngx_sos
+
+END
+
 fi

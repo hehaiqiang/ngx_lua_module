@@ -83,7 +83,7 @@ NGX_LUA_HTTP_SESSION_MODULE_SRCS=" \
 NGX_LUA_HTTP_VARIABLE_MODULE_SRCS=" \
     $ngx_addon_dir/src/http/ngx_lua_http_variable_module.c"
 
-NGX_LUA_DLL=NO
+NGX_LUA_DLL=YES
 
 if [ $NGX_LUA_DLL = NO ]; then
 
