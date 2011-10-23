@@ -20,6 +20,8 @@ static const char *ngx_lua_reader(lua_State *l, void *data, size_t *size);
 static int ngx_lua_writer(lua_State *l, const void *buf, size_t size,
     void *data);
 
+static void ngx_lua_hook(lua_State *l, lua_Debug *ar);
+
 static int ngx_lua_panic(lua_State *l);
 static void ngx_lua_set_path(lua_State *l, char *key, ngx_str_t *value);
 static int ngx_lua_print(lua_State *l);
@@ -132,6 +134,14 @@ ngx_lua_thread_create(ngx_lua_thread_t *thr)
 
     lua_pushlightuserdata(thr->l, thr);
     lua_setglobal(thr->l, NGX_LUA_KEY_THR);
+
+    /* TODO: LUA_MASKCOUNT */
+
+#if 1
+    lua_sethook(thr->l, ngx_lua_hook, LUA_MASKCALL|LUA_MASKRET|LUA_MASKLINE, 0);
+#else
+    lua_sethook(thr->l, ngx_lua_hook, 0, 0);
+#endif
 
     return NGX_OK;
 }
@@ -528,6 +538,88 @@ ngx_lua_writer(lua_State *l, const void *buf, size_t size, void *data)
     b->last = ngx_cpymem(b->last, buf, size);
 
     return 0;
+}
+
+
+static void
+ngx_lua_hook(lua_State *l, lua_Debug *ar)
+{
+    int                rc, n, level;
+    char              *name, *value;
+    ngx_lua_thread_t  *thr;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua hook");
+
+    /* TODO */
+    /* lua_getupvalue */
+
+    switch (ar->event) {
+
+    case LUA_HOOKCALL:
+        break;
+
+    case LUA_HOOKRET:
+        break;
+
+    case LUA_HOOKTAILRET:
+        break;
+
+    case LUA_HOOKLINE:
+
+        ngx_log_debug1(NGX_LOG_DEBUG_CORE, thr->log, 0,
+                       "current line %d", ar->currentline);
+
+#if 0
+        rc = lua_getinfo(l, "nSlufL", ar);
+        if (rc == 0) {
+            ngx_log_error(NGX_LOG_ALERT, thr->log, 0, "lua_getinfo() failed");
+            break;
+        }
+#endif
+
+        n = 1;
+
+        do {
+
+            name = (char *) lua_getlocal(l, ar, n);
+            if (name == NULL) {
+                break;
+            }
+
+            if (lua_type(l, -1) == LUA_TSTRING) {
+                value = (char *) luaL_checkstring(l, -1);
+            }
+
+            lua_pop(l, 1);
+
+            n++;
+
+        } while (1);
+
+        level = 0;
+
+        do {
+
+            rc = lua_getstack(l, level, ar);
+            if (rc == 0) {
+                break;
+            }
+
+            level++;
+
+        } while (1);
+
+        break;
+
+    case LUA_HOOKCOUNT:
+        break;
+
+    default:
+        ngx_log_error(NGX_LOG_ALERT, thr->log, 0, "invalid hook event");
+        break;
+    }
 }
 
 

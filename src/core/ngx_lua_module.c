@@ -8,7 +8,6 @@
 #include <ngx_core.h>
 #include <ngx_md5.h>
 #include <ngx_lua.h>
-#include <ngx_lua_dlfcn.h>
 
 
 #define NGX_LUA_MAX_MODULES  64

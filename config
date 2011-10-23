@@ -7,7 +7,7 @@ ngx_addon_name=ngx_lua_module
 #NGX_LUA_HTTP=YES
 #NGX_LUA_UDP=YES
 
-NGX_LUA_DLL=YES
+NGX_LUA_DLL=NO
 
 
 . $ngx_addon_dir/auto/lib/lua/conf

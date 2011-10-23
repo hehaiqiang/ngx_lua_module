@@ -112,6 +112,35 @@ char *ngx_lua_set_script_parser_slot(ngx_conf_t *cf, ngx_command_t *cmd,
 #define ngx_lua_thread_get_conf(thr, module)  (thr)->conf[module.index]
 
 
+#if !(NGX_WIN32)
+
+#include <dlfcn.h>
+
+#define ngx_lua_dlopen(name)        dlopen(name, RTLD_LAZY)
+#define ngx_lua_dlopen_n            "dlopen()"
+
+#define ngx_lua_dlclose(handle)     dlclose(handle)
+
+#define ngx_lua_dlsym(handle, sym)  dlsym(handle, sym)
+#define ngx_lua_dlsym_n             "dlsym()"
+
+#define ngx_lua_dlerror()           dlerror()
+
+#else
+
+#define ngx_lua_dlopen(name)        LoadLibrary(name)
+#define ngx_lua_dlopen_n            "LoadLibrary()"
+
+#define ngx_lua_dlclose(handle)     FreeLibrary(handle)
+
+#define ngx_lua_dlsym(handle, sym)  GetProcAddress(handle, sym)
+#define ngx_lua_dlsym_n             "GetProcAddress()"
+
+#define ngx_lua_dlerror()           ""
+
+#endif
+
+
 extern ngx_dll ngx_module_t   ngx_lua_module;
 extern ngx_module_t          *ngx_lua_modules[];
 extern ngx_uint_t             ngx_lua_max_module;
