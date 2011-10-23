@@ -107,13 +107,13 @@ static ngx_uint_t  argument_number[] = {
 extern ngx_module_t  ngx_lua_cache_module;
 extern ngx_module_t  ngx_lua_parser_module;
 extern ngx_module_t  ngx_lua_session_module;
-extern ngx_module_t  ngx_lua_utils_module;
 extern ngx_module_t  ngx_lua_dahua_module;
 extern ngx_module_t  ngx_lua_dbd_module;
 extern ngx_module_t  ngx_lua_file_module;
 extern ngx_module_t  ngx_lua_logger_module;
 extern ngx_module_t  ngx_lua_smtp_module;
 extern ngx_module_t  ngx_lua_socket_module;
+extern ngx_module_t  ngx_lua_utils_module;
 extern ngx_module_t  ngx_lua_webservice_module;
 extern ngx_module_t  ngx_lua_xml_module;
 extern ngx_module_t  ngx_lua_http_request_module;
@@ -126,7 +126,6 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_cache_module,
     &ngx_lua_parser_module,
     &ngx_lua_session_module,
-    &ngx_lua_utils_module,
 #if !(NGX_LUA_DLL)
     &ngx_lua_dahua_module,
     &ngx_lua_dbd_module,
@@ -134,6 +133,7 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_logger_module,
     &ngx_lua_smtp_module,
     &ngx_lua_socket_module,
+    &ngx_lua_utils_module,
     &ngx_lua_webservice_module,
     &ngx_lua_xml_module,
     &ngx_lua_http_request_module,

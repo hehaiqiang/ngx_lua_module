@@ -3,17 +3,17 @@
 
 
 if [ $NGX_LUA_DLL = YES ]; then
-    ngx_so_dir="$NGX_OBJS${ngx_dirsep}modules${ngx_dirsep}"
+    lua_module_dir="$NGX_OBJS${ngx_dirsep}modules${ngx_dirsep}"
 
-    mkdir -p $ngx_so_dir
+    mkdir -p $lua_module_dir
 
     if [ "$NGX_PLATFORM" != win32 ]; then
-        ngx_lib=" -shared -fPIC"
+        lua_module_link="-shared -fPIC"
     else
-        ngx_lib=" \
-            -link -dll -verbose:lib \
-            -def:$ngx_addon_dir/src/core/ngx_lua_module.def \
-            ws2_32.lib $NGX_OBJS${ngx_dirsep}nginx.lib"
+        nginx_lib="$NGX_OBJS${ngx_dirsep}nginx.lib"
+        lua_module_def="$ngx_addon_dir/src/core/ngx_lua_module.def"
+        lua_module_link="-link -dll -verbose:lib -def:$lua_module_def"
+        lua_module_def_libs="ws2_32.lib $nginx_lib"
     fi
 
     ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) -DNGX_DLL=1 \$(ALL_INCS)"
@@ -22,60 +22,101 @@ if [ $NGX_LUA_DLL = YES ]; then
         ngx_cc="$ngx_cc -fPIC"
     fi
 
-    NGX_LUA_MODULE_SRCS=" \
-        $NGX_LUA_DAHUA_MODULE_SRCS \
-        $NGX_LUA_FILE_MODULE_SRCS \
-        $NGX_LUA_LOGGER_MODULE_SRCS \
-        $NGX_LUA_SMTP_MODULE_SRCS \
-        $NGX_LUA_SOCKET_MODULE_SRCS \
-        $NGX_LUA_HTTP_REQUEST_MODULE_SRCS \
-        $NGX_LUA_HTTP_RESPONSE_MODULE_SRCS \
-        $NGX_LUA_HTTP_SESSION_MODULE_SRCS \
-        $NGX_LUA_HTTP_VARIABLE_MODULE_SRCS"
+    lua_modules=""
 
-    ngx_sos=""
+    lua_module="$NGX_LUA_AXIS2C_MODULE"
+    lua_module_libs="$lua_module_def_libs $AXIS2C_LIBS"
+    lua_module_incs=
+    lua_module_deps="$ngx_cont$NGX_LUA_AXIS2C_DEPS"
+    lua_module_srcs=" \
+        $NGX_LUA_AXIS2C_SRCS \
+        $NGX_LUA_WEBSERVICE_SRCS \
+        $NGX_LUA_XML_SRCS"
+    . $ngx_addon_dir/auto/make
 
-    for ngx_src in $NGX_LUA_MODULE_SRCS
-    do
-        ngx_obj="addon/`basename \`dirname $ngx_src\``"
+    lua_module="$NGX_LUA_DAHUA_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_DAHUA_SRCS"
+    . $ngx_addon_dir/auto/make
 
-        ngx_obj=`echo $ngx_obj/\`basename $ngx_src\` \
-            | sed -e "s/\//$ngx_regex_dirsep/g"`
+    lua_module="$NGX_LUA_DBD_MODULE"
+    lua_module_libs="$lua_module_def_libs $LIBDRIZZLE_LIBS $SQLITE3_LIBS"
+    if [ "$NGX_PLATFORM" = win32 ]; then
+        lua_module_libs="$lua_module_libs user32.lib"
+    fi
+    lua_module_incs="$NGX_LUA_DBD_INCS"
+    lua_module_deps="$ngx_cont$NGX_LUA_DBD_DEPS"
+    lua_module_srcs="$NGX_LUA_DBD_SRCS"
+    . $ngx_addon_dir/auto/make
 
-        ngx_obj=`echo $ngx_obj \
-            | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
-                  -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
+    lua_module="$NGX_LUA_FILE_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_FILE_SRCS"
+    . $ngx_addon_dir/auto/make
 
-        ngx_src=`echo $ngx_src | sed -e "s/\//$ngx_regex_dirsep/g"`
+    lua_module="$NGX_LUA_LOGGER_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_LOGGER_SRCS"
+    . $ngx_addon_dir/auto/make
 
-        cat << END                                            >> $NGX_MAKEFILE
+    lua_module="$NGX_LUA_SMTP_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_SMTP_SRCS"
+    . $ngx_addon_dir/auto/make
 
-$ngx_obj:	\$(ADDON_DEPS)$ngx_cont$ngx_src
-	$ngx_cc$ngx_tab$ngx_objout$ngx_obj$ngx_tab$ngx_src$NGX_AUX
+    lua_module="$NGX_LUA_SOCKET_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_SOCKET_SRCS"
+    . $ngx_addon_dir/auto/make
 
-END
+    lua_module="$NGX_LUA_UTILS_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_UTILS_SRCS"
+    . $ngx_addon_dir/auto/make
 
-        ngx_so=`basename $ngx_obj`
+    lua_module="$NGX_LUA_HTTP_REQUEST_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_HTTP_REQUEST_SRCS"
+    . $ngx_addon_dir/auto/make
 
-        ngx_so=`echo $ngx_so \
-            | sed -e "s#^\(.*\.\)$ngx_objext\\$#$ngx_so_dir\1so#g"`
+    lua_module="$NGX_LUA_HTTP_RESPONSE_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_HTTP_RESPONSE_SRCS"
+    . $ngx_addon_dir/auto/make
 
-        cat << END                                            >> $NGX_MAKEFILE
+    lua_module="$NGX_LUA_HTTP_SESSION_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_HTTP_SESSION_SRCS"
+    . $ngx_addon_dir/auto/make
 
-$ngx_so:	$ngx_obj$ngx_spacer
-	\$(LINK) ${ngx_long_start}${ngx_binout}$ngx_so$ngx_long_cont$ngx_obj$ngx_lib
-${ngx_long_end}
+    lua_module="$NGX_LUA_HTTP_VARIABLE_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_HTTP_VARIABLE_SRCS"
+    . $ngx_addon_dir/auto/make
 
-END
+    cat << END                                                >> $NGX_MAKEFILE
 
-        ngx_sos="$ngx_sos$ngx_cont$ngx_so"
-    done
-
-        cat << END                                            >> $NGX_MAKEFILE
-
-modules:	$ngx_sos
+modules:	$lua_modules
 
 END
 

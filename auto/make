@@ -1,0 +1,60 @@
+
+# Copyright (C) Ngwsx
+
+
+if [ "$lua_module_incs" != "" ]; then
+    lua_module_incs=`echo $lua_module_incs\
+        | sed -e "s/  *\([^ ][^ ]*\)/$ngx_regex_cont$ngx_include_opt\1/g" \
+              -e "s/\//$ngx_regex_dirsep/g"`
+
+    lua_module_incs=" $ngx_include_opt$lua_module_incs"
+fi
+
+ngx_objs=NO
+ngx_objs_deps=NO
+
+for ngx_src in $lua_module_srcs
+do
+    ngx_obj="addon/`basename \`dirname $ngx_src\``"
+
+    test -d $NGX_OBJS/$ngx_obj || mkdir -p $NGX_OBJS/$ngx_obj
+
+    ngx_obj=`echo $ngx_obj/\`basename $ngx_src\` \
+        | sed -e "s/\//$ngx_regex_dirsep/g"`
+
+    ngx_obj=`echo $ngx_obj \
+        | sed -e "s#^\(.*\.\)cpp\\$#$ngx_objs_dir\1$ngx_objext#g" \
+              -e "s#^\(.*\.\)cc\\$#$ngx_objs_dir\1$ngx_objext#g" \
+              -e "s#^\(.*\.\)c\\$#$ngx_objs_dir\1$ngx_objext#g" \
+              -e "s#^\(.*\.\)S\\$#$ngx_objs_dir\1$ngx_objext#g"`
+
+    ngx_src=`echo $ngx_src | sed -e "s/\//$ngx_regex_dirsep/g"`
+
+    cat << END                                                >> $NGX_MAKEFILE
+
+$ngx_obj:	\$(ADDON_DEPS)$ngx_cont$ngx_src$lua_module_deps
+	$ngx_cc$lua_module_incs$ngx_tab$ngx_objout$ngx_obj$ngx_tab$ngx_src$NGX_AUX
+
+END
+
+    if [ "$ngx_objs" = NO ]; then
+        ngx_objs="$ngx_obj"
+        ngx_objs_deps="$ngx_obj"
+    else
+        ngx_objs="$ngx_objs$ngx_long_cont$ngx_obj"
+        ngx_objs_deps="$ngx_objs_deps$ngx_cont$ngx_obj"
+    fi
+done
+
+lua_module_ext=".so"
+lua_module="$lua_module_dir$lua_module$lua_module_ext"
+
+cat << END                                                    >> $NGX_MAKEFILE
+
+$lua_module:	$ngx_objs_deps$ngx_cont$nginx_lib$ngx_cont$lua_module_def
+	\$(LINK) ${ngx_long_start}${ngx_binout}$lua_module$ngx_long_cont$ngx_objs$ngx_long_cont$lua_module_libs$ngx_long_cont$lua_module_link
+${ngx_long_end}
+
+END
+
+lua_modules="$lua_modules$ngx_cont$lua_module"

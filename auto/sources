@@ -1,0 +1,101 @@
+
+# Copyright (C) Ngwsx
+
+
+NGX_LUA_MODULE="ngx_lua_module"
+NGX_LUA_INCS=" \
+    $ngx_addon_dir/src/core \
+    $ngx_addon_dir/src/core/modules"
+NGX_LUA_DEPS=" \
+    $ngx_addon_dir/src/core/ngx_lua.h \
+    $ngx_addon_dir/src/core/ngx_lua_dlfcn.h \
+    $ngx_addon_dir/src/core/ngx_lua_session.h"
+NGX_LUA_SRCS=" \
+    $ngx_addon_dir/src/core/ngx_lua.c \
+    $ngx_addon_dir/src/core/ngx_lua_cache.c \
+    $ngx_addon_dir/src/core/ngx_lua_module.c \
+    $ngx_addon_dir/src/core/ngx_lua_parse.c \
+    $ngx_addon_dir/src/core/ngx_lua_session.c"
+
+
+NGX_LUA_HTTP_MODULE="ngx_lua_http_module"
+NGX_LUA_HTTP_INCS="$ngx_addon_dir/src/http"
+NGX_LUA_HTTP_DEPS="$ngx_addon_dir/src/http/ngx_lua_http_module.h"
+NGX_LUA_HTTP_SRCS="$ngx_addon_dir/src/http/ngx_lua_http_module.c"
+
+
+NGX_LUA_UDP_MODULES=" \
+    ngx_udp_module \
+    ngx_udp_core_module \
+    ngx_udp_proxy_module \
+    ngx_lua_udp_module"
+NGX_LUA_UDP_INCS=" \
+    $ngx_addon_dir/../ngx_udp_module/src \
+    $ngx_addon_dir/src/udp"
+NGX_LUA_UDP_DEPS=" \
+    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp.h \
+    $ngx_addon_dir/src/udp/ngx_lua_udp_module.h"
+NGX_LUA_UDP_SRCS=" \
+    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp.c \
+    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp_core_module.c \
+    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp_handler.c \
+    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp_proxy_module.c \
+    $ngx_addon_dir/src/udp/ngx_lua_udp_module.c"
+
+
+NGX_LUA_DAHUA_MODULE="ngx_lua_dahua_module"
+NGX_LUA_DAHUA_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_dahua_module.c"
+
+NGX_LUA_DBD_MODULE="ngx_lua_dbd_module"
+NGX_LUA_DBD_INCS="$ngx_addon_dir/../ngx_dbd_module/src"
+NGX_LUA_DBD_DEPS="$ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd.h"
+NGX_LUA_DBD_SRCS=" \
+    $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_libdrizzle.c \
+    $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_sqlite3.c \
+    $ngx_addon_dir/src/core/modules/ngx_lua_database_module.c"
+
+NGX_LUA_FILE_MODULE="ngx_lua_file_module"
+NGX_LUA_FILE_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_file_module.c"
+
+NGX_LUA_LOGGER_MODULE="ngx_lua_logger_module"
+NGX_LUA_LOGGER_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_logger_module.c"
+
+NGX_LUA_SMTP_MODULE="ngx_lua_smtp_module"
+NGX_LUA_SMTP_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_smtp_module.c"
+
+NGX_LUA_SOCKET_MODULE="ngx_lua_socket_module"
+NGX_LUA_SOCKET_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_socket_module.c"
+
+NGX_LUA_UTILS_MODULE="ngx_lua_utils_module"
+NGX_LUA_UTILS_SRCS=" \
+    $ngx_addon_dir/src/core/modules/ngx_lua_http.c \
+    $ngx_addon_dir/src/core/modules/ngx_lua_utils_module.c"
+
+
+NGX_LUA_AXIS2C_MODULE="ngx_lua_axis2c_module"
+NGX_LUA_AXIS2C_DEPS="$ngx_addon_dir/src/core/modules/ngx_lua_axis2c.h"
+NGX_LUA_AXIS2C_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_axis2c.c"
+
+NGX_LUA_WEBSERVICE_MODULE="ngx_lua_webservice_module"
+NGX_LUA_WEBSERVICE_SRCS=" \
+    $ngx_addon_dir/src/core/modules/ngx_lua_webservice_module.c"
+
+NGX_LUA_XML_MODULE="ngx_lua_xml_module"
+NGX_LUA_XML_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_xml_module.c"
+
+
+NGX_LUA_HTTP_REQUEST_MODULE="ngx_lua_http_request_module"
+NGX_LUA_HTTP_REQUEST_SRCS=" \
+    $ngx_addon_dir/src/http/ngx_lua_http_request_module.c"
+
+NGX_LUA_HTTP_RESPONSE_MODULE="ngx_lua_http_response_module"
+NGX_LUA_HTTP_RESPONSE_SRCS=" \
+    $ngx_addon_dir/src/http/ngx_lua_http_response_module.c"
+
+NGX_LUA_HTTP_SESSION_MODULE="ngx_lua_http_session_module"
+NGX_LUA_HTTP_SESSION_SRCS=" \
+    $ngx_addon_dir/src/http/ngx_lua_http_session_module.c"
+
+NGX_LUA_HTTP_VARIABLE_MODULE="ngx_lua_http_variable_module"
+NGX_LUA_HTTP_VARIABLE_SRCS=" \
+    $ngx_addon_dir/src/http/ngx_lua_http_variable_module.c"

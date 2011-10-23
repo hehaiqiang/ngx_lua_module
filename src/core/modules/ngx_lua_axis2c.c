@@ -41,6 +41,25 @@ static axutil_log_ops_t  ngx_lua_axis2c_log_ops = {
 };
 
 
+extern ngx_module_t  ngx_lua_webservice_module;
+extern ngx_module_t  ngx_lua_xml_module;
+
+
+#if (NGX_LUA_DLL)
+ngx_module_t **
+ngx_lua_get_modules(void)
+{
+    static ngx_module_t  *modules[] = {
+        &ngx_lua_webservice_module,
+        &ngx_lua_xml_module,
+        NULL
+    };
+
+    return modules;
+}
+#endif
+
+
 axutil_allocator_t *
 ngx_lua_axis2c_allocator_create(ngx_lua_thread_t *thr)
 {

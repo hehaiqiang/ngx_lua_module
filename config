@@ -4,125 +4,75 @@
 
 ngx_addon_name=ngx_lua_module
 
-EVENT_MODULES="$EVENT_MODULES \
-    ngx_udp_module \
-    ngx_udp_core_module \
-    ngx_udp_proxy_module \
-    ngx_lua_module \
-    ngx_lua_udp_module"
-
-HTTP_MODULES="$HTTP_MODULES ngx_lua_http_module"
-
-HTTP_INCS="$HTTP_INCS \
-    $ngx_addon_dir/../ngx_udp_module/src \
-    $ngx_addon_dir/src/core \
-    $ngx_addon_dir/src/http \
-    $ngx_addon_dir/src/udp"
-
-NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
-    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp.h"
-
-NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
-    $ngx_addon_dir/src/core/ngx_lua.h \
-    $ngx_addon_dir/src/core/ngx_lua_dlfcn.h \
-    $ngx_addon_dir/src/core/ngx_lua_session.h"
-
-NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
-    $ngx_addon_dir/src/http/ngx_lua_http_module.h"
-
-NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
-    $ngx_addon_dir/src/udp/ngx_lua_udp_module.h"
-
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp.c \
-    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp_core_module.c \
-    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp_handler.c \
-    $ngx_addon_dir/../ngx_udp_module/src/ngx_udp_proxy_module.c"
-
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-    $ngx_addon_dir/src/core/ngx_lua.c \
-    $ngx_addon_dir/src/core/ngx_lua_cache.c \
-    $ngx_addon_dir/src/core/ngx_lua_module.c \
-    $ngx_addon_dir/src/core/ngx_lua_parse.c \
-    $ngx_addon_dir/src/core/ngx_lua_session.c"
-
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-    $ngx_addon_dir/src/http/ngx_lua_http_module.c"
-
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-    $ngx_addon_dir/src/udp/ngx_lua_udp_module.c"
-
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-    $ngx_addon_dir/src/core/modules/ngx_lua_utils_module.c \
-    $ngx_addon_dir/src/core/modules/ngx_lua_http.c"
-
-NGX_LUA_DAHUA_MODULE_SRCS=" \
-    $ngx_addon_dir/src/core/modules/ngx_lua_dahua_module.c"
-
-NGX_LUA_FILE_MODULE_SRCS=" \
-    $ngx_addon_dir/src/core/modules/ngx_lua_file_module.c"
-
-NGX_LUA_LOGGER_MODULE_SRCS=" \
-    $ngx_addon_dir/src/core/modules/ngx_lua_logger_module.c"
-
-NGX_LUA_SMTP_MODULE_SRCS=" \
-    $ngx_addon_dir/src/core/modules/ngx_lua_smtp_module.c"
-
-NGX_LUA_SOCKET_MODULE_SRCS=" \
-    $ngx_addon_dir/src/core/modules/ngx_lua_socket_module.c"
-
-NGX_LUA_HTTP_REQUEST_MODULE_SRCS=" \
-    $ngx_addon_dir/src/http/ngx_lua_http_request_module.c"
-
-NGX_LUA_HTTP_RESPONSE_MODULE_SRCS=" \
-    $ngx_addon_dir/src/http/ngx_lua_http_response_module.c"
-
-NGX_LUA_HTTP_SESSION_MODULE_SRCS=" \
-    $ngx_addon_dir/src/http/ngx_lua_http_session_module.c"
-
-NGX_LUA_HTTP_VARIABLE_MODULE_SRCS=" \
-    $ngx_addon_dir/src/http/ngx_lua_http_variable_module.c"
+#NGX_LUA_HTTP=YES
+#NGX_LUA_UDP=YES
 
 NGX_LUA_DLL=YES
 
+
+. $ngx_addon_dir/auto/lib/lua/conf
+CORE_LIBS="$CORE_LIBS $LUA_LIBS"
+CORE_INCS="$CORE_INCS $LUA_INCS"
+
+#. $ngx_addon_dir/auto/lib/luajit/conf
+#CORE_LIBS="$CORE_LIBS $LUAJIT_LIBS"
+#CORE_INCS="$CORE_INCS $LUAJIT_INCS"
+
+
+. $ngx_addon_dir/auto/sources
+
+EVENT_MODULES="$EVENT_MODULES $NGX_LUA_MODULE"
+HTTP_INCS="$HTTP_INCS $NGX_LUA_INCS"
+NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DEPS"
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_SRCS"
+
+EVENT_MODULES="$EVENT_MODULES $NGX_LUA_UDP_MODULES"
+HTTP_INCS="$HTTP_INCS $NGX_LUA_UDP_INCS"
+NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_UDP_DEPS"
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_UDP_SRCS"
+
+HTTP_MODULES="$HTTP_MODULES $NGX_LUA_HTTP_MODULE"
+HTTP_INCS="$HTTP_INCS $NGX_LUA_HTTP_INCS"
+NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_HTTP_DEPS"
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_HTTP_SRCS"
+
+
+. $ngx_addon_dir/auto/lib/axis2c/conf
+. $ngx_addon_dir/../ngx_dbd_module/auto/lib/libdrizzle/conf
+. $ngx_addon_dir/../ngx_dbd_module/auto/lib/sqlite3/conf
+
+CORE_INCS="$CORE_INCS $AXIS2C_INCS"
+CORE_INCS="$CORE_INCS $LIBDRIZZLE_INCS"
+CORE_INCS="$CORE_INCS $SQLITE3_INCS"
+
 if [ $NGX_LUA_DLL = NO ]; then
 
-    . $ngx_addon_dir/auto/lib/axis2c/conf
-
-    NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
-        $ngx_addon_dir/src/core/ngx_lua_axis2c.h"
-
+    CORE_LIBS="$CORE_LIBS $AXIS2C_LIBS"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_AXIS2C_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-        $ngx_addon_dir/src/core/ngx_lua_axis2c.c \
-        $ngx_addon_dir/src/core/modules/ngx_lua_webservice_module.c \
-        $ngx_addon_dir/src/core/modules/ngx_lua_xml_module.c"
+        $NGX_LUA_AXIS2C_SRCS \
+        $NGX_LUA_WEBSERVICE_SRCS \
+        $NGX_LUA_XML_SRCS"
 
 
-    . $ngx_addon_dir/../ngx_dbd_module/config-libdrizzle
-    . $ngx_addon_dir/../ngx_dbd_module/config-sqlite3
-
-    HTTP_INCS="$HTTP_INCS \
-        $ngx_addon_dir/../ngx_dbd_module/src"
-
-    NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
-        $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd.h"
-
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-        $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_libdrizzle.c \
-        $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_sqlite3.c \
-        $ngx_addon_dir/src/core/modules/ngx_lua_database_module.c"
+    CORE_LIBS="$CORE_LIBS $LIBDRIZZLE_LIBS"
+    CORE_LIBS="$CORE_LIBS $SQLITE3_LIBS"
+    HTTP_INCS="$HTTP_INCS $NGX_LUA_DBD_INCS"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DBD_DEPS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_DBD_SRCS"
 
 
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-        $NGX_LUA_DAHUA_MODULE_SRCS \
-        $NGX_LUA_FILE_MODULE_SRCS \
-        $NGX_LUA_LOGGER_MODULE_SRCS \
-        $NGX_LUA_SMTP_MODULE_SRCS \
-        $NGX_LUA_SOCKET_MODULE_SRCS \
-        $NGX_LUA_HTTP_REQUEST_MODULE_SRCS \
-        $NGX_LUA_HTTP_RESPONSE_MODULE_SRCS \
-        $NGX_LUA_HTTP_SESSION_MODULE_SRCS \
-        $NGX_LUA_HTTP_VARIABLE_MODULE_SRCS"
+        $NGX_LUA_DAHUA_SRCS \
+        $NGX_LUA_FILE_SRCS \
+        $NGX_LUA_LOGGER_SRCS \
+        $NGX_LUA_SMTP_SRCS \
+        $NGX_LUA_SOCKET_SRCS \
+        $NGX_LUA_UTILS_SRCS \
+        $NGX_LUA_HTTP_REQUEST_SRCS \
+        $NGX_LUA_HTTP_RESPONSE_SRCS \
+        $NGX_LUA_HTTP_SESSION_SRCS \
+        $NGX_LUA_HTTP_VARIABLE_SRCS"
 
     have=NGX_LUA_DLL . auto/nohave
 
@@ -132,10 +82,8 @@ else
         CORE_LINK="$CORE_LINK -rdynamic"
     else
         NGX_LUA_DEF="$ngx_addon_dir/src/core/ngx_lua.def"
-
         CORE_LINK="$CORE_LINK -def:$NGX_LUA_DEF"
-
-        NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DEF"
+        CORE_DEPS="$CORE_DEPS $NGX_LUA_DEF"
     fi
 
     have=NGX_LUA_DLL . auto/have
@@ -145,8 +93,6 @@ if [ "$NGX_PLATFORM" != win32 ]; then
     CORE_LINK="$CORE_LINK -ldl"
 fi
 
-. $ngx_addon_dir/auto/lib/lua/conf
-#. $ngx_addon_dir/auto/lib/luajit/conf
 
 USE_MD5=YES
 USE_SHA1=YES

@@ -162,7 +162,7 @@ ngx_module_t  ngx_lua_dbd_module = {
 ngx_module_t **
 ngx_lua_get_modules(void)
 {
-    static ngx_module_t  *modules = {
+    static ngx_module_t  *modules[] = {
         &ngx_lua_dbd_module,
         NULL
     };

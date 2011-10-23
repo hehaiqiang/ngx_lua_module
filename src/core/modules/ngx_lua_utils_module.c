@@ -76,6 +76,20 @@ ngx_module_t  ngx_lua_utils_module = {
 };
 
 
+#if (NGX_LUA_DLL)
+ngx_module_t **
+ngx_lua_get_modules(void)
+{
+    static ngx_module_t  *modules[] = {
+        &ngx_lua_utils_module,
+        NULL
+    };
+
+    return modules;
+}
+#endif
+
+
 static int
 ngx_lua_escape_uri(lua_State *l)
 {

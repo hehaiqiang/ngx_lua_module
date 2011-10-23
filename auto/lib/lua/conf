@@ -10,5 +10,4 @@ else
     LUA_LIBS="$LUA/libs/win32/liblua.lib"
 fi
 
-CORE_INCS="$CORE_INCS $LUA/incs"
-CORE_LIBS="$CORE_LIBS $LUA_LIBS"
+LUA_INCS="$LUA/incs"
