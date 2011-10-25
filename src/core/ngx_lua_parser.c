@@ -98,14 +98,25 @@ ngx_lua_parser_find(ngx_log_t *log, ngx_str_t *name)
 static ngx_int_t
 ngx_lua_parse_default(ngx_lua_thread_t *thr)
 {
-    u_char  *out;
+    size_t   size;
+    u_char  *out, *p;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua parse default");
 
     out = ngx_cpymem(thr->buf->last, NGX_LUA_FUNCTION_START,
                      sizeof(NGX_LUA_FUNCTION_START) - 1);
 
-    out = ngx_cpymem(out, thr->lsp->pos, thr->lsp->last - thr->lsp->pos);
+    size = thr->lsp->last - thr->lsp->pos;
+    p = thr->lsp->pos;
+
+    /* UTF-8 BOM */
+
+    if (size >= 3 && p[0] == 0xEF && p[1] == 0xBB && p[2] == 0xBF) {
+        p += 3;
+        size -= 3;
+    }
+
+    out = ngx_cpymem(out, p, size);
 
     out = ngx_cpymem(out, NGX_LUA_FUNCTION_END,
                      sizeof(NGX_LUA_FUNCTION_END) - 1);

@@ -12,7 +12,7 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include <ngx_lua.h>
-#include <ngx_lua_session.h>
+#include <ngx_lua_http_session.h>
 
 
 #define NGX_LUA_HTTP_TABLE  "http_srv"

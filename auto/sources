@@ -6,15 +6,13 @@ NGX_LUA_MODULE="ngx_lua_module"
 NGX_LUA_INCS=" \
     $ngx_addon_dir/src/core \
     $ngx_addon_dir/src/core/modules"
-NGX_LUA_DEPS=" \
-    $ngx_addon_dir/src/core/ngx_lua.h \
-    $ngx_addon_dir/src/core/ngx_lua_session.h"
+NGX_LUA_DEPS="$ngx_addon_dir/src/core/ngx_lua.h"
 NGX_LUA_SRCS=" \
     $ngx_addon_dir/src/core/ngx_lua.c \
     $ngx_addon_dir/src/core/ngx_lua_cache.c \
+    $ngx_addon_dir/src/core/ngx_lua_debug.c \
     $ngx_addon_dir/src/core/ngx_lua_module.c \
-    $ngx_addon_dir/src/core/ngx_lua_parser.c \
-    $ngx_addon_dir/src/core/ngx_lua_session.c"
+    $ngx_addon_dir/src/core/ngx_lua_parser.c"
 
 
 NGX_LUA_HTTP_MODULE="ngx_lua_http_module"
@@ -92,7 +90,9 @@ NGX_LUA_HTTP_RESPONSE_SRCS=" \
     $ngx_addon_dir/src/http/ngx_lua_http_response_module.c"
 
 NGX_LUA_HTTP_SESSION_MODULE="ngx_lua_http_session_module"
+NGX_LUA_HTTP_SESSION_DEPS="$ngx_addon_dir/src/http/ngx_lua_http_session.h"
 NGX_LUA_HTTP_SESSION_SRCS=" \
+    $ngx_addon_dir/src/http/ngx_lua_http_session.c \
     $ngx_addon_dir/src/http/ngx_lua_http_session_module.c"
 
 NGX_LUA_HTTP_VARIABLE_MODULE="ngx_lua_http_variable_module"

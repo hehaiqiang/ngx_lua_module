@@ -94,6 +94,9 @@ void ngx_lua_load_script(ngx_lua_thread_t *thr);
 ngx_int_t ngx_lua_cache_get(ngx_lua_thread_t *thr);
 ngx_int_t ngx_lua_cache_set(ngx_lua_thread_t *thr);
 
+ngx_int_t ngx_lua_debug_start(ngx_lua_thread_t *thr);
+ngx_int_t ngx_lua_debug_stop(ngx_lua_thread_t *thr);
+
 ngx_lua_parser_pt ngx_lua_parser_find(ngx_log_t *log, ngx_str_t *name);
 
 char *ngx_lua_set_script_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);

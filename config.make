@@ -103,7 +103,7 @@ if [ $NGX_LUA_DLL = YES ]; then
     lua_module="$NGX_LUA_HTTP_SESSION_MODULE"
     lua_module_libs="$lua_module_def_libs"
     lua_module_incs=
-    lua_module_deps=
+    lua_module_deps="$ngx_cont$NGX_LUA_HTTP_SESSION_DEPS"
     lua_module_srcs="$NGX_LUA_HTTP_SESSION_SRCS"
     . $ngx_addon_dir/auto/make
 

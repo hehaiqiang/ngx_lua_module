@@ -124,7 +124,6 @@ extern ngx_module_t  ngx_lua_http_variable_module;
 ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_cache_module,
     &ngx_lua_parser_module,
-    &ngx_lua_session_module,
 #if !(NGX_LUA_DLL)
     &ngx_lua_dahua_module,
     &ngx_lua_dbd_module,
@@ -136,6 +135,8 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_webservice_module,
     &ngx_lua_xml_module,
     &ngx_lua_http_request_module,
+    /* TODO */
+    &ngx_lua_session_module,
     &ngx_lua_http_response_module,
     &ngx_lua_http_session_module,
     &ngx_lua_http_variable_module,

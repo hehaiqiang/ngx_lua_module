@@ -6,7 +6,7 @@
 
 #include <ngx_config.h>
 #include <ngx_core.h>
-#include <ngx_lua_session.h>
+#include <ngx_lua_http_module.h>
 
 
 #define NGX_LUA_SESSION_MODE_SINGLE   1
