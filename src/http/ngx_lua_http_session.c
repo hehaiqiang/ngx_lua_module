@@ -502,7 +502,7 @@ ngx_lua_session(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         ngx_conf_init_size_value(lscf->size, 1024 * 1024 * 1);
 
         lscf->zone = ngx_shared_memory_add(cf, &lscf->name, lscf->size,
-                                           &ngx_lua_module);
+                                           &ngx_lua_session_module);
         if (lscf->zone == NULL) {
             return NGX_CONF_ERROR;
         }

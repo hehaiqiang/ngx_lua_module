@@ -1243,7 +1243,7 @@ ngx_lua_dbd(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_conf_init_size_value(ldcf->size, 1024 * 512);
 
     ldcf->zone = ngx_shared_memory_add(cf, &ldcf->name, ldcf->size,
-                                       &ngx_lua_module);
+                                       &ngx_lua_dbd_module);
     if (ldcf->zone == NULL) {
         return NGX_CONF_ERROR;
     }

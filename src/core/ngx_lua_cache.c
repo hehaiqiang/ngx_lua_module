@@ -490,15 +490,14 @@ ngx_lua_cache(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_conf_init_value(lccf->expire, 30 * 60);
 
     lccf->zone = ngx_shared_memory_add(cf, &lccf->name, lccf->size,
-                                       &ngx_lua_module);
+                                       &ngx_lua_cache_module);
     if (lccf->zone == NULL) {
         return NGX_CONF_ERROR;
     }
 
     if (lccf->zone->data) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "duplicate lua cache name \"%V\"",
-                           &lccf->name);
+                           "duplicate lua cache name \"%V\"", &lccf->name);
         return NGX_CONF_ERROR;
     }
 
