@@ -11,6 +11,11 @@
 #include <ngx_lua.h>
 
 
+typedef struct {
+    ngx_event_t    event;
+} ngx_lua_utils_ctx_t;
+
+
 extern int ngx_lua_http(lua_State *l);
 
 static int ngx_lua_escape_uri(lua_State *l);
@@ -22,6 +27,9 @@ static int ngx_lua_crc32(lua_State *l);
 static int ngx_lua_murmur_hash2(lua_State *l);
 static int ngx_lua_md5(lua_State *l);
 static int ngx_lua_sha1(lua_State *l);
+static int ngx_lua_sleep(lua_State *l);
+
+static void ngx_lua_sleep_handler(ngx_event_t *ev);
 
 static ngx_int_t ngx_lua_utils_module_init(ngx_cycle_t *cycle);
 
@@ -48,13 +56,12 @@ static luaL_Reg  ngx_lua_methods[] = {
     { "murmur_hash2", ngx_lua_murmur_hash2 },
     { "md5", ngx_lua_md5 },
     { "sha1", ngx_lua_sha1 },
+    { "sleep", ngx_lua_sleep },
+    { "http", ngx_lua_http },
 
 #if 0
-    { "sleep", ngx_lua_sleep },
     iconv
 #endif
-
-    { "http", ngx_lua_http },
 
     { NULL, NULL }
 };
@@ -374,6 +381,72 @@ ngx_lua_sha1(lua_State *l)
     lua_pushlstring(l, (char *) hex, last - hex);
 
     return 1;
+}
+
+
+static int
+ngx_lua_sleep(lua_State *l)
+{
+    ngx_int_t             time;
+    ngx_str_t             str;
+    ngx_lua_thread_t     *thr;
+    ngx_lua_utils_ctx_t  *ctx;
+
+    thr = ngx_lua_thread(l);
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua sleep");
+
+    str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
+
+    time = ngx_parse_time(&str, 0);
+    if (time == NGX_ERROR) {
+        lua_pushboolean(l, 0);
+        lua_pushfstring(l, "invalid time \"%s\"", str.data);
+        return 2;
+    }
+
+    ctx = ngx_lua_thread_get_module_ctx(thr, ngx_lua_utils_module);
+    if (ctx == NULL) {
+        ctx = ngx_pcalloc(thr->pool, sizeof(ngx_lua_utils_module));
+        if (ctx == NULL) {
+            lua_pushboolean(l, 0);
+            lua_pushstring(l, "ngx_pcalloc() failed");
+            return 2;
+        }
+
+        ngx_lua_thread_set_ctx(thr, ctx, ngx_lua_utils_module);
+    }
+
+    ctx->event.handler = ngx_lua_sleep_handler;
+    ctx->event.data = thr;
+    ctx->event.log = thr->log;
+
+    ngx_add_timer(&ctx->event, time);
+
+    return lua_yield(l, 0);
+}
+
+
+static void
+ngx_lua_sleep_handler(ngx_event_t *ev)
+{
+    ngx_int_t          rc;
+    ngx_lua_thread_t  *thr;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua sleep handler");
+
+    thr = ev->data;
+
+    /* TODO */
+
+    lua_pushboolean(thr->l, 1);
+
+    rc = ngx_lua_thread_run(thr, 1);
+    if (rc == NGX_AGAIN) {
+        return;
+    }
+
+    ngx_lua_finalize(thr, rc);
 }
 
 

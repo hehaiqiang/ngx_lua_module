@@ -67,7 +67,7 @@ ngx_lua_http_variable_index(lua_State *l)
 
     key = ngx_hash_strlow(name.data, p, name.len);
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
 
     vv = ngx_http_get_variable(ctx->r, &name, key);
     if (vv == NULL || vv->not_found) {

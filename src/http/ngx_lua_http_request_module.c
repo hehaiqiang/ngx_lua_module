@@ -92,7 +92,7 @@ ngx_lua_request_headers_index(lua_State *l)
 
     thr = ngx_lua_thread(l);
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
@@ -148,7 +148,7 @@ ngx_lua_request_cookies_index(lua_State *l)
 
     thr = ngx_lua_thread(l);
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
@@ -175,7 +175,7 @@ ngx_lua_request_get_index(lua_State *l)
 
     thr = ngx_lua_thread(l);
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);
 
@@ -201,7 +201,7 @@ ngx_lua_request_post_index(lua_State *l)
 
     thr = ngx_lua_thread(l);
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
     r = ctx->r;
 
     if (r->request_body == NULL) {
@@ -289,7 +289,7 @@ ngx_lua_request_index(lua_State *l)
 
     thr = ngx_lua_thread(l);
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
     r = ctx->r;
 
     key.data = (u_char *) luaL_checklstring(l, -1, &key.len);

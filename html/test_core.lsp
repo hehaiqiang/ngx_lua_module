@@ -43,6 +43,9 @@ print('MD5 test<br>', str, '<br>', md5, '<hr>')
 local sha1, errstr = utils.sha1(str)
 if not sha1 then print(errstr) return end
 print('SHA1 test<br>', str, '<br>', sha1, '<hr>')
+
+utils.sleep("500ms")
+utils.sleep("3s")
 %>
 <html>
 <head>

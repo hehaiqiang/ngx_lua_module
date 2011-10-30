@@ -418,6 +418,12 @@ ngx_lua_handler(ngx_lua_thread_t *thr)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua handler");
 
+    thr->ctx = ngx_pcalloc(thr->pool, sizeof(void *) * ngx_lua_max_module);
+    if (thr->ctx == NULL) {
+        ngx_lua_finalize(thr, NGX_ERROR);
+        return;
+    }
+
     if (!thr->cached) {
         if (thr->script->parser(thr) == NGX_ERROR) {
             ngx_log_error(NGX_LOG_ALERT, thr->log, 0, "parsing error");

@@ -168,7 +168,7 @@ ngx_lua_http_handler(ngx_http_request_t *r)
     thr->file.fd = NGX_INVALID_FILE;
     thr->ref = LUA_NOREF;
     thr->conf = lcf->conf;
-    thr->ctx = ctx;
+    thr->module_ctx = ctx;
     thr->c = r->connection;
     thr->script = script;
     thr->output = ngx_lua_http_output;
@@ -247,7 +247,7 @@ ngx_lua_http_output(ngx_lua_thread_t *thr, u_char *buf, size_t size)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, thr->log, 0, "lua http output");
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
 
     /* TODO */
 
@@ -296,7 +296,7 @@ ngx_lua_http_finalize(ngx_lua_thread_t *thr, ngx_int_t rc)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, thr->log, 0, "lua http finalize");
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
     r = ctx->r;
 
     if (r->headers_out.content_type.len == 0) {

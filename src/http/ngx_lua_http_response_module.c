@@ -148,7 +148,7 @@ ngx_lua_response_newindex(lua_State *l)
 
     /* TODO: r->headers_out.status */
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
 
     switch (key.len) {
 

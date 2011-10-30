@@ -62,22 +62,27 @@ typedef struct {
 
 
 struct ngx_lua_thread_s {
+    void                   **conf;
+    ngx_lua_script_t        *script;
+    ngx_lua_output_pt        output;
+    ngx_lua_finalize_pt      finalize;
+
     ngx_pool_t              *pool;
     ngx_log_t               *log;
+    ngx_connection_t        *c;
+
     ngx_file_t               file;
     ngx_str_t                path;
     size_t                   size;
     time_t                   mtime;
-    ngx_buf_t               *lsp;
-    ngx_buf_t               *buf;
+
     lua_State               *l;
     int                      ref;
-    void                   **conf;
-    void                    *ctx;
-    ngx_connection_t        *c;
-    ngx_lua_script_t        *script;
-    ngx_lua_output_pt        output;
-    ngx_lua_finalize_pt      finalize;
+    ngx_buf_t               *lsp;
+    ngx_buf_t               *buf;
+    void                    *module_ctx;
+    void                   **ctx;
+
     unsigned                 cached:1;
 };
 
@@ -113,6 +118,9 @@ char *ngx_lua_set_script_parser_slot(ngx_conf_t *cf, ngx_command_t *cmd,
      ngx_get_conf(cycle->conf_ctx, ngx_lua_module))->conf[module.index]
 
 #define ngx_lua_thread_get_conf(thr, module)  (thr)->conf[module.index]
+
+#define ngx_lua_thread_get_module_ctx(thr, module)  (thr)->ctx[module.index]
+#define ngx_lua_thread_set_ctx(thr, ctx, module)    thr->ctx[module.index] = ctx
 
 
 #if !(NGX_WIN32)

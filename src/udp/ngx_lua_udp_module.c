@@ -155,7 +155,7 @@ ngx_lua_udp_init_session(ngx_udp_session_t *s)
     thr->file.fd = NGX_INVALID_FILE;
     thr->ref = LUA_NOREF;
     thr->conf = lcf->conf;
-    thr->ctx = ctx;
+    thr->module_ctx = ctx;
     thr->c = s->connection;
     thr->script = &uscf->script;
     thr->output = ngx_lua_udp_output;
@@ -209,7 +209,7 @@ ngx_lua_udp_output(ngx_lua_thread_t *thr, u_char *buf, size_t size)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua udp output");
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
 
     /* TODO */
 
@@ -257,7 +257,7 @@ ngx_lua_udp_finalize(ngx_lua_thread_t *thr, ngx_int_t rc)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua udp finalize");
 
-    ctx = thr->ctx;
+    ctx = thr->module_ctx;
     s = ctx->s;
 
     /* TODO: sending response */
