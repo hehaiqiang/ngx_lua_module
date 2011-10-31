@@ -27,9 +27,10 @@ static int ngx_lua_crc32(lua_State *l);
 static int ngx_lua_murmur_hash2(lua_State *l);
 static int ngx_lua_md5(lua_State *l);
 static int ngx_lua_sha1(lua_State *l);
-static int ngx_lua_sleep(lua_State *l);
 
+static int ngx_lua_sleep(lua_State *l);
 static void ngx_lua_sleep_handler(ngx_event_t *ev);
+static void ngx_lua_sleep_cleanup(void *data);
 
 static ngx_int_t ngx_lua_utils_module_init(ngx_cycle_t *cycle);
 
@@ -390,24 +391,32 @@ ngx_lua_sleep(lua_State *l)
     ngx_int_t             time;
     ngx_str_t             str;
     ngx_lua_thread_t     *thr;
+    ngx_pool_cleanup_t   *cln;
     ngx_lua_utils_ctx_t  *ctx;
 
     thr = ngx_lua_thread(l);
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua sleep");
 
-    str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
+    if (lua_type(l, 1) == LUA_TSTRING) {
+        str.data = (u_char *) luaL_checklstring(l, 1, &str.len);
 
-    time = ngx_parse_time(&str, 0);
-    if (time == NGX_ERROR) {
-        lua_pushboolean(l, 0);
-        lua_pushfstring(l, "invalid time \"%s\"", str.data);
-        return 2;
+        time = ngx_parse_time(&str, 0);
+        if (time == NGX_ERROR) {
+            lua_pushboolean(l, 0);
+            lua_pushfstring(l, "invalid time \"%s\"", str.data);
+            return 2;
+        }
+
+    } else {
+        time = luaL_checkint(l, 1);
+
+        /* TODO: error handling */
     }
 
     ctx = ngx_lua_thread_get_module_ctx(thr, ngx_lua_utils_module);
     if (ctx == NULL) {
-        ctx = ngx_pcalloc(thr->pool, sizeof(ngx_lua_utils_module));
+        ctx = ngx_pcalloc(thr->pool, sizeof(ngx_lua_utils_ctx_t));
         if (ctx == NULL) {
             lua_pushboolean(l, 0);
             lua_pushstring(l, "ngx_pcalloc() failed");
@@ -417,9 +426,21 @@ ngx_lua_sleep(lua_State *l)
         ngx_lua_thread_set_ctx(thr, ctx, ngx_lua_utils_module);
     }
 
-    ctx->event.handler = ngx_lua_sleep_handler;
-    ctx->event.data = thr;
-    ctx->event.log = thr->log;
+    if (ctx->event.handler == NULL) {
+        ctx->event.handler = ngx_lua_sleep_handler;
+        ctx->event.data = thr;
+        ctx->event.log = thr->log;
+
+        cln = ngx_pool_cleanup_add(thr->pool, 0);
+        if (cln == NULL) {
+            lua_pushboolean(l, 0);
+            lua_pushstring(l, "ngx_pool_cleanup_add() failed");
+            return 2;
+        }
+
+        cln->handler = ngx_lua_sleep_cleanup;
+        cln->data = thr;
+    }
 
     ngx_add_timer(&ctx->event, time);
 
@@ -437,8 +458,6 @@ ngx_lua_sleep_handler(ngx_event_t *ev)
 
     thr = ev->data;
 
-    /* TODO */
-
     lua_pushboolean(thr->l, 1);
 
     rc = ngx_lua_thread_run(thr, 1);
@@ -447,6 +466,23 @@ ngx_lua_sleep_handler(ngx_event_t *ev)
     }
 
     ngx_lua_finalize(thr, rc);
+}
+
+
+static void
+ngx_lua_sleep_cleanup(void *data)
+{
+    ngx_lua_thread_t *thr = data;
+
+    ngx_lua_utils_ctx_t  *ctx;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua sleep cleanup");
+
+    ctx = ngx_lua_thread_get_module_ctx(thr, ngx_lua_utils_module);
+
+    if (ctx->event.timer_set) {
+        ngx_event_del_timer(&ctx->event);
+    }
 }
 
 
