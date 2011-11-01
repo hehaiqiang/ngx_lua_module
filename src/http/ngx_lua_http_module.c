@@ -237,7 +237,7 @@ ngx_lua_http_init_request(ngx_http_request_t *r)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_lua_http_output(ngx_lua_thread_t *thr, u_char *buf, size_t size)
 {
     size_t               n;
@@ -286,7 +286,7 @@ ngx_lua_http_output(ngx_lua_thread_t *thr, u_char *buf, size_t size)
 }
 
 
-void
+static void
 ngx_lua_http_finalize(ngx_lua_thread_t *thr, ngx_int_t rc)
 {
     size_t               size;

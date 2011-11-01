@@ -199,7 +199,7 @@ ngx_lua_udp_process_session(ngx_udp_session_t *s)
 }
 
 
-ngx_int_t
+static ngx_int_t
 ngx_lua_udp_output(ngx_lua_thread_t *thr, u_char *buf, size_t size)
 {
     size_t              n;
@@ -248,7 +248,7 @@ ngx_lua_udp_output(ngx_lua_thread_t *thr, u_char *buf, size_t size)
 }
 
 
-void
+static void
 ngx_lua_udp_finalize(ngx_lua_thread_t *thr, ngx_int_t rc)
 {
     ngx_buf_t          *b;
