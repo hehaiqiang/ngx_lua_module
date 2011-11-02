@@ -40,6 +40,9 @@ NGX_LUA_UDP_SRCS=" \
     $ngx_addon_dir/src/udp/ngx_lua_udp_module.c"
 
 
+NGX_LUA_AUTORUN_MODULE="ngx_lua_autorun_module"
+NGX_LUA_AUTORUN_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_autorun_module.c"
+
 NGX_LUA_DAHUA_MODULE="ngx_lua_dahua_module"
 NGX_LUA_DAHUA_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_dahua_module.c"
 

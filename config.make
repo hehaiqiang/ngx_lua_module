@@ -24,6 +24,13 @@ if [ $NGX_LUA_DLL = YES ]; then
 
     lua_modules=""
 
+    lua_module="$NGX_LUA_AUTORUN_MODULE"
+    lua_module_libs="$lua_module_def_libs"
+    lua_module_incs=
+    lua_module_deps=
+    lua_module_srcs="$NGX_LUA_AUTORUN_SRCS"
+    . $ngx_addon_dir/auto/make
+
     lua_module="$NGX_LUA_AXIS2C_MODULE"
     lua_module_libs="$lua_module_def_libs $AXIS2C_LIBS"
     lua_module_incs=

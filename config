@@ -63,6 +63,7 @@ if [ $NGX_LUA_DLL = NO ]; then
 
 
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
+        $NGX_LUA_AUTORUN_SRCS \
         $NGX_LUA_DAHUA_SRCS \
         $NGX_LUA_FILE_SRCS \
         $NGX_LUA_LOGGER_SRCS \

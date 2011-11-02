@@ -105,7 +105,7 @@ static ngx_uint_t  argument_number[] = {
 
 extern ngx_module_t  ngx_lua_cache_module;
 extern ngx_module_t  ngx_lua_parser_module;
-extern ngx_module_t  ngx_lua_session_module;
+extern ngx_module_t  ngx_lua_autorun_module;
 extern ngx_module_t  ngx_lua_dahua_module;
 extern ngx_module_t  ngx_lua_dbd_module;
 extern ngx_module_t  ngx_lua_file_module;
@@ -117,6 +117,7 @@ extern ngx_module_t  ngx_lua_webservice_module;
 extern ngx_module_t  ngx_lua_xml_module;
 extern ngx_module_t  ngx_lua_http_request_module;
 extern ngx_module_t  ngx_lua_http_response_module;
+extern ngx_module_t  ngx_lua_session_module;
 extern ngx_module_t  ngx_lua_http_session_module;
 extern ngx_module_t  ngx_lua_http_variable_module;
 
@@ -125,6 +126,7 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_cache_module,
     &ngx_lua_parser_module,
 #if !(NGX_LUA_DLL)
+    &ngx_lua_autorun_module,
     &ngx_lua_dahua_module,
     &ngx_lua_dbd_module,
     &ngx_lua_file_module,
@@ -135,9 +137,9 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_webservice_module,
     &ngx_lua_xml_module,
     &ngx_lua_http_request_module,
+    &ngx_lua_http_response_module,
     /* TODO */
     &ngx_lua_session_module,
-    &ngx_lua_http_response_module,
     &ngx_lua_http_session_module,
     &ngx_lua_http_variable_module,
 #endif
@@ -681,9 +683,7 @@ ngx_lua_set_script_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     value = cf->args->elts;
     name = cmd->name.data;
 
-    if (ngx_strcmp(name, "lua_http_script_code") == 0
-        || ngx_strcmp(name, "lua_udp_script_code") == 0)
-    {
+    if (ngx_strstr(name, "script_code") != NULL) {
         script->from = NGX_LUA_SCRIPT_FROM_CONF;
         script->code = value[1];
 
