@@ -50,10 +50,14 @@ ngx_module_t  ngx_lua_http_session_module = {
 
 
 #if (NGX_LUA_DLL)
+extern ngx_module_t  ngx_lua_session_module;
+
+
 ngx_module_t **
 ngx_lua_get_modules(void)
 {
     static ngx_module_t  *modules[] = {
+        &ngx_lua_session_module,
         &ngx_lua_http_session_module,
         NULL
     };
