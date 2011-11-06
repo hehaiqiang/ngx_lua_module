@@ -10,6 +10,7 @@ lua_next
 lua_objlen
 lua_pushboolean
 lua_pushcclosure
+lua_pushfstring
 lua_pushinteger
 lua_pushlstring
 lua_pushnil
@@ -57,7 +58,12 @@ ngx_http_arg
 ngx_http_get_variable
 ngx_http_parse_multi_header_lines
 ngx_log_error_core
+ngx_lua_check_script
+ngx_lua_load_script
+ngx_lua_parser_find
+ngx_lua_set_script_slot
 ngx_lua_thread
+ngx_lua_thread_destroy
 ngx_lua_thread_run
 ngx_memn2cmp
 ngx_md5_final
@@ -69,6 +75,7 @@ ngx_mutex_unlock
 ngx_open_file
 ngx_palloc
 ngx_parse_size
+ngx_parse_time
 ngx_parse_url
 ngx_pcalloc
 ngx_pfree
@@ -83,6 +90,7 @@ ngx_shmtx_unlock
 ngx_slab_alloc
 ngx_slab_alloc_locked
 ngx_slprintf
+ngx_sock_ntop
 ngx_sprintf
 ngx_strlcasestrn
 ngx_udp_connect
