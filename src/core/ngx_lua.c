@@ -342,7 +342,7 @@ ngx_lua_load_script(ngx_lua_thread_t *thr)
     mode = NGX_FILE_RDONLY|NGX_FILE_NONBLOCK;
 
 #if (NGX_WIN32 && NGX_HAVE_FILE_AIO)
-    if (ngx_event_flags & NGX_USE_IOCP_EVENT) {
+    if (thr->aio && (ngx_event_flags & NGX_USE_IOCP_EVENT)) {
         mode |= NGX_FILE_OVERLAPPED;
     }
 #endif
@@ -356,12 +356,18 @@ ngx_lua_load_script(ngx_lua_thread_t *thr)
         return;
     }
 
+    if (thr->aio) {
+
 #if !(NGX_WIN32)
-    /* TODO: ngx_file_aio_read */
-    n = ngx_read_file(file, thr->lsp->pos, thr->size, 0);
+        /* TODO: ngx_file_aio_read */
+        n = ngx_read_file(file, thr->lsp->pos, thr->size, 0);
 #else
-    n = ngx_file_aio_read(file, thr->lsp->pos, thr->size, 0, thr->pool);
+        n = ngx_file_aio_read(file, thr->lsp->pos, thr->size, 0, thr->pool);
 #endif
+
+    } else {
+        n = ngx_read_file(file, thr->lsp->pos, thr->size, 0);
+    }
 
     if (n == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,

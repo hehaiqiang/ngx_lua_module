@@ -152,6 +152,7 @@ ngx_lua_udp_init_session(ngx_udp_session_t *s)
 
     thr->pool = s->connection->pool;
     thr->log = s->connection->log;
+    thr->aio = 1;
     thr->file.fd = NGX_INVALID_FILE;
     thr->ref = LUA_NOREF;
     thr->conf = lcf->conf;

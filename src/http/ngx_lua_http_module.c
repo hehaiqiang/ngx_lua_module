@@ -165,6 +165,7 @@ ngx_lua_http_handler(ngx_http_request_t *r)
 
     thr->pool = r->pool;
     thr->log = r->connection->log;
+    thr->aio = 1;
     thr->file.fd = NGX_INVALID_FILE;
     thr->ref = LUA_NOREF;
     thr->conf = lcf->conf;

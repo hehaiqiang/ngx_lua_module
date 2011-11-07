@@ -209,6 +209,7 @@ ngx_lua_autorun_process_init(ngx_cycle_t *cycle)
 
     thr->pool = pool;
     thr->log = cycle->log;
+    thr->aio = 1;
     thr->file.fd = NGX_INVALID_FILE;
     thr->ref = LUA_NOREF;
     thr->conf = lcf->conf;

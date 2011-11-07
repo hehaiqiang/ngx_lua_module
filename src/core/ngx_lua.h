@@ -71,6 +71,7 @@ struct ngx_lua_thread_s {
     ngx_log_t               *log;
     ngx_connection_t        *c;
 
+    ngx_flag_t               aio;
     ngx_file_t               file;
     ngx_str_t                path;
     size_t                   size;
