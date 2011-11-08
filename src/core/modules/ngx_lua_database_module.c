@@ -203,19 +203,19 @@ ngx_lua_dbd_create_pool(lua_State *l)
     drv.data = (u_char *) luaL_checklstring(l, -1, &drv.len);
 
     lua_getfield(l, 1, "host");
-    host.data = (u_char *) luaL_checklstring(l, -1, &host.len);
+    host.data = (u_char *) luaL_optlstring(l, -1, "", &host.len);
 
     lua_getfield(l, 1, "port");
-    port = (in_port_t) luaL_checknumber(l, -1);
+    port = (in_port_t) luaL_optnumber(l, -1, 0);
 
     lua_getfield(l, 1, "database");
     db.data = (u_char *) luaL_checklstring(l, -1, &db.len);
 
     lua_getfield(l, 1, "user");
-    user.data = (u_char *) luaL_checklstring(l, -1, &user.len);
+    user.data = (u_char *) luaL_optlstring(l, -1, "", &user.len);
 
     lua_getfield(l, 1, "password");
-    passwd.data = (u_char *) luaL_checklstring(l, -1, &passwd.len);
+    passwd.data = (u_char *) luaL_optlstring(l, -1, "", &passwd.len);
 
     lua_getfield(l, 1, "max_connections");
     max_connections = (ngx_uint_t) luaL_checknumber(l, -1);
