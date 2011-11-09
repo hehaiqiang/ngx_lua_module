@@ -49,9 +49,10 @@ ngx_lua_http_variable_index(lua_State *l)
 {
     u_char                     *p;
     ngx_str_t                   name;
-    ngx_uint_t                  key;
+    ngx_uint_t                  key, status;
     ngx_lua_thread_t           *thr;
     ngx_lua_http_ctx_t         *ctx;
+    ngx_http_request_t         *r;
     ngx_http_variable_value_t  *vv;
 
     thr = ngx_lua_thread(l);
@@ -70,12 +71,53 @@ ngx_lua_http_variable_index(lua_State *l)
     ctx = thr->module_ctx;
 
     vv = ngx_http_get_variable(ctx->r, &name, key);
-    if (vv == NULL || vv->not_found) {
-        lua_pushnil(l);
+    if (vv != NULL && !vv->not_found) {
+        lua_pushlstring(l, (char *) vv->data, vv->len);
         return 1;
     }
 
-    lua_pushlstring(l, (char *) vv->data, vv->len);
+    r = ctx->r;
+
+    switch (name.len) {
+
+    case 6:
+
+        if (ngx_strncmp(name.data, "status", 6) == 0) {
+            if (r->err_status) {
+                status = r->err_status;
+
+            } else if (r->headers_out.status) {
+                status = r->headers_out.status;
+
+            } else if (r->http_version == NGX_HTTP_VERSION_9) {
+                lua_pushstring(l, "009");
+                return 1;
+
+            } else {
+                status = 0;
+            }
+
+            lua_pushnumber(l, status);
+            return 1;
+        }
+
+        break;
+
+    case 10:
+
+        if (ngx_strncmp(name.data, "time_local", 10) == 0) {
+            lua_pushlstring(l, (char *) ngx_cached_http_log_time.data,
+                            ngx_cached_http_log_time.len);
+            return 1;
+        }
+
+        break;
+
+    default:
+        break;
+    }
+
+    lua_pushnil(l);
 
     return 1;
 }
