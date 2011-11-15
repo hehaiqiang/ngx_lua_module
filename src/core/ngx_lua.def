@@ -42,6 +42,8 @@ ngx_connection_error
 ngx_cpystrn
 ngx_create_pool
 ngx_create_temp_buf
+ngx_dbd_add_driver
+ngx_dbd_create
 ngx_decode_base64
 ngx_destroy_pool
 ngx_encode_base64

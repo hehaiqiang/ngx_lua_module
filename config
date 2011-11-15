@@ -77,6 +77,10 @@ if [ $NGX_LUA_AXIS2C = YES ]; then
 fi
 
 if [ $NGX_LUA_DBD = YES ]; then
+    CORE_INCS="$CORE_INCS $NGX_LUA_DBD_INCS"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DBD_DEPS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_DBD_SRCS"
+
     if [ $NGX_LUA_DBD_LIBDRIZZLE = YES ]; then
         . $ngx_addon_dir/../ngx_dbd_module/auto/lib/libdrizzle/conf
         CORE_INCS="$CORE_INCS $LIBDRIZZLE_INCS"
@@ -118,9 +122,7 @@ if [ $NGX_LUA_DLL = NO ]; then
     fi
 
     if [ $NGX_LUA_DBD = YES ]; then
-        CORE_INCS="$CORE_INCS $NGX_LUA_DBD_INCS"
-        NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DBD_DEPS"
-        NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_DBD_SRCS"
+        NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_DBD_MODULE_SRCS"
 
         if [ $NGX_LUA_DBD_LIBDRIZZLE = YES ]; then
             CORE_LIBS="$CORE_LIBS $LIBDRIZZLE_LIBS"

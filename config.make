@@ -57,22 +57,28 @@ if [ $NGX_LUA_DLL = YES ]; then
     if [ $NGX_LUA_DBD = YES ]; then
         lua_module="$NGX_LUA_DBD_MODULE"
         lua_module_libs="$lua_module_def_libs"
-        # STUB
-        if [ "$NGX_PLATFORM" = win32 ]; then
-            lua_module_libs="$lua_module_libs user32.lib"
-        fi
         lua_module_incs="$NGX_LUA_DBD_INCS"
         lua_module_deps="$ngx_cont$NGX_LUA_DBD_DEPS"
-        lua_module_srcs="$NGX_LUA_DBD_SRCS"
-        if [ $NGX_LUA_DBD_LIBDRIZZLE = YES ]; then
-            lua_module_libs="$lua_module_libs $LIBDRIZZLE_LIBS"
-            lua_module_srcs="$lua_module_srcs $NGX_LUA_DBD_LIBDRIZZLE_SRCS"
-        fi
-        if [ $NGX_LUA_DBD_SQLITE3 = YES ]; then
-            lua_module_libs="$lua_module_libs $SQLITE3_LIBS"
-            lua_module_srcs="$lua_module_srcs $NGX_LUA_DBD_SQLITE3_SRCS"
-        fi
+        lua_module_srcs="$NGX_LUA_DBD_MODULE_SRCS"
         . $ngx_addon_dir/auto/make
+
+        if [ $NGX_LUA_DBD_LIBDRIZZLE = YES ]; then
+            lua_module="$NGX_LUA_DBD_LIBDRIZZLE_MODULE"
+            lua_module_libs="$lua_module_def_libs user32.lib $LIBDRIZZLE_LIBS"
+            lua_module_incs="$NGX_LUA_DBD_INCS"
+            lua_module_deps="$ngx_cont$NGX_LUA_DBD_DEPS"
+            lua_module_srcs="$NGX_LUA_DBD_LIBDRIZZLE_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
+
+        if [ $NGX_LUA_DBD_SQLITE3 = YES ]; then
+            lua_module="$NGX_LUA_DBD_SQLITE3_MODULE"
+            lua_module_libs="$lua_module_def_libs $SQLITE3_LIBS"
+            lua_module_incs="$NGX_LUA_DBD_INCS"
+            lua_module_deps="$ngx_cont$NGX_LUA_DBD_DEPS"
+            lua_module_srcs="$NGX_LUA_DBD_SQLITE3_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
     fi
 
     if [ $NGX_LUA_FILE = YES ]; then
