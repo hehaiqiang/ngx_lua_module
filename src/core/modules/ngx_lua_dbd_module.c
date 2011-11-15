@@ -1139,8 +1139,6 @@ ngx_lua_dbd_init(ngx_shm_zone_t *shm_zone, void *data)
     ngx_sprintf(ldcf->pool->log_ctx, " in lua dbd \"%V\"%Z",
                 &shm_zone->shm.name);
 
-    ngx_rbtree_init(&ldcf->rbtree, &ldcf->sentinel, ngx_lua_dbd_insert_value);
-
     return NGX_OK;
 }
 
@@ -1193,7 +1191,9 @@ ngx_lua_dbd_create_conf(ngx_cycle_t *cycle)
 static char *
 ngx_lua_dbd_init_conf(ngx_cycle_t *cycle, void *conf)
 {
-    /* TODO */
+    ngx_lua_dbd_conf_t *ldcf = conf;
+
+    ngx_rbtree_init(&ldcf->rbtree, &ldcf->sentinel, ngx_lua_dbd_insert_value);
 
     return NGX_CONF_OK;
 }
