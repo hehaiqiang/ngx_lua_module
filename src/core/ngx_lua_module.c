@@ -108,6 +108,8 @@ extern ngx_module_t  ngx_lua_parser_module;
 extern ngx_module_t  ngx_lua_autorun_module;
 extern ngx_module_t  ngx_lua_dahua_module;
 extern ngx_module_t  ngx_lua_dbd_module;
+extern ngx_module_t  ngx_lua_dbd_libdrizzle_module;
+extern ngx_module_t  ngx_lua_dbd_sqlite3_module;
 extern ngx_module_t  ngx_lua_file_module;
 extern ngx_module_t  ngx_lua_logger_module;
 extern ngx_module_t  ngx_lua_smtp_module;
@@ -130,6 +132,8 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_autorun_module,
     &ngx_lua_dahua_module,
     &ngx_lua_dbd_module,
+    &ngx_lua_dbd_libdrizzle_module,
+    &ngx_lua_dbd_sqlite3_module,
     &ngx_lua_file_module,
     &ngx_lua_logger_module,
     &ngx_lua_smtp_module,
