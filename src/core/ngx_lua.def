@@ -95,7 +95,3 @@ ngx_sprintf
 ngx_strlcasestrn
 ngx_udp_connect
 ngx_unescape_uri
-
-sha1_begin
-sha1_end
-sha1_hash

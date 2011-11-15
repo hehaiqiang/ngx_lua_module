@@ -45,10 +45,10 @@ if not sha1 then print(errstr) return end
 print('SHA1 test<br>', str, '<br>', sha1, '<hr>')
 
 utils.sleep('500ms')
-utils.sleep('3s')
+--utils.sleep('3s')
 utils.sleep(500)
-utils.sleep(2000)
-utils.sleep('6s500ms')
+--utils.sleep(2000)
+--utils.sleep('6s500ms')
 %>
 <html>
 <head>

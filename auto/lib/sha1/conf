@@ -1,0 +1,9 @@
+
+# Copyright (C) Ngwsx
+
+
+if [ "$NGX_PLATFORM" != win32 ]; then
+    SHA1_LIBS="-L$SHA1 -lsha"
+else
+    SHA1_LIBS="$SHA1/sha1.lib"
+fi

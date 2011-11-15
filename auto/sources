@@ -15,12 +15,16 @@ NGX_LUA_SRCS=" \
     $ngx_addon_dir/src/core/ngx_lua_parser.c"
 
 
-NGX_LUA_HTTP_MODULE="ngx_lua_http_module"
+NGX_LUA_HTTP_MODULES=" \
+    ngx_lua_http_module \
+    ngx_lua_http_log_module"
 NGX_LUA_HTTP_INCS=" \
     $ngx_addon_dir/src/http \
     $ngx_addon_dir/src/http/modules"
 NGX_LUA_HTTP_DEPS="$ngx_addon_dir/src/http/ngx_lua_http_module.h"
-NGX_LUA_HTTP_SRCS="$ngx_addon_dir/src/http/ngx_lua_http_module.c"
+NGX_LUA_HTTP_SRCS=" \
+    $ngx_addon_dir/src/http/ngx_lua_http_module.c \
+    $ngx_addon_dir/src/http/ngx_lua_http_log_module.c"
 
 
 NGX_LUA_UDP_MODULES=" \
@@ -45,45 +49,60 @@ NGX_LUA_UDP_SRCS=" \
 NGX_LUA_AUTORUN_MODULE="ngx_lua_autorun_module"
 NGX_LUA_AUTORUN_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_autorun_module.c"
 
-NGX_LUA_DAHUA_MODULE="ngx_lua_dahua_module"
-NGX_LUA_DAHUA_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_dahua_module.c"
-
-NGX_LUA_DBD_MODULE="ngx_lua_dbd_module"
-NGX_LUA_DBD_INCS="$ngx_addon_dir/../ngx_dbd_module/src"
-NGX_LUA_DBD_DEPS="$ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd.h"
-NGX_LUA_DBD_SRCS=" \
-    $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_libdrizzle.c \
-    $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_sqlite3.c \
-    $ngx_addon_dir/src/core/modules/ngx_lua_database_module.c"
-
-NGX_LUA_FILE_MODULE="ngx_lua_file_module"
-NGX_LUA_FILE_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_file_module.c"
-
-NGX_LUA_LOGGER_MODULE="ngx_lua_logger_module"
-NGX_LUA_LOGGER_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_logger_module.c"
-
-NGX_LUA_SMTP_MODULE="ngx_lua_smtp_module"
-NGX_LUA_SMTP_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_smtp_module.c"
-
-NGX_LUA_SOCKET_MODULE="ngx_lua_socket_module"
-NGX_LUA_SOCKET_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_socket_module.c"
-
-NGX_LUA_UTILS_MODULE="ngx_lua_utils_module"
-NGX_LUA_UTILS_SRCS=" \
-    $ngx_addon_dir/src/core/modules/ngx_lua_http.c \
-    $ngx_addon_dir/src/core/modules/ngx_lua_utils_module.c"
-
 
 NGX_LUA_AXIS2C_MODULE="ngx_lua_axis2c_module"
 NGX_LUA_AXIS2C_DEPS="$ngx_addon_dir/src/core/modules/ngx_lua_axis2c.h"
 NGX_LUA_AXIS2C_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_axis2c.c"
 
-NGX_LUA_WEBSERVICE_MODULE="ngx_lua_webservice_module"
-NGX_LUA_WEBSERVICE_SRCS=" \
-    $ngx_addon_dir/src/core/modules/ngx_lua_webservice_module.c"
+NGX_LUA_AXIS2C_WS_MODULE="ngx_lua_axis2c_ws_module"
+NGX_LUA_AXIS2C_WS_SRCS=" \
+    $ngx_addon_dir/src/core/modules/ngx_lua_axis2c_ws_module.c"
 
-NGX_LUA_XML_MODULE="ngx_lua_xml_module"
-NGX_LUA_XML_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_xml_module.c"
+NGX_LUA_AXIS2C_XML_MODULE="ngx_lua_axis2c_xml_module"
+NGX_LUA_AXIS2C_XML_SRCS=" \
+    $ngx_addon_dir/src/core/modules/ngx_lua_axis2c_xml_module.c"
+
+
+NGX_LUA_DAHUA_MODULE="ngx_lua_dahua_module"
+NGX_LUA_DAHUA_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_dahua_module.c"
+
+
+NGX_LUA_DBD_MODULE="ngx_lua_dbd_module"
+NGX_LUA_DBD_INCS="$ngx_addon_dir/../ngx_dbd_module/src"
+NGX_LUA_DBD_DEPS="$ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd.h"
+NGX_LUA_DBD_SRCS=" \
+    $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd.c \
+    $ngx_addon_dir/src/core/modules/ngx_lua_dbd_module.c"
+
+NGX_LUA_DBD_LIBDRIZZLE_MODULE="ngx_lua_dbd_libdrizzle_module"
+NGX_LUA_DBD_LIBDRIZZLE_SRCS=" \
+    $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_libdrizzle.c"
+
+NGX_LUA_DBD_SQLITE3_MODULE="ngx_lua_dbd_sqlite3_module"
+NGX_LUA_DBD_SQLITE3_SRCS=" \
+    $ngx_addon_dir/../ngx_dbd_module/src/ngx_dbd_sqlite3.c"
+
+
+NGX_LUA_FILE_MODULE="ngx_lua_file_module"
+NGX_LUA_FILE_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_file_module.c"
+
+
+NGX_LUA_LOGGER_MODULE="ngx_lua_logger_module"
+NGX_LUA_LOGGER_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_logger_module.c"
+
+
+NGX_LUA_SMTP_MODULE="ngx_lua_smtp_module"
+NGX_LUA_SMTP_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_smtp_module.c"
+
+
+NGX_LUA_SOCKET_MODULE="ngx_lua_socket_module"
+NGX_LUA_SOCKET_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_socket_module.c"
+
+
+NGX_LUA_UTILS_MODULE="ngx_lua_utils_module"
+NGX_LUA_UTILS_SRCS=" \
+    $ngx_addon_dir/src/core/modules/ngx_lua_http.c \
+    $ngx_addon_dir/src/core/modules/ngx_lua_utils_module.c"
 
 
 NGX_LUA_HTTP_REQUEST_MODULE="ngx_lua_http_request_module"
@@ -104,3 +123,7 @@ NGX_LUA_HTTP_SESSION_SRCS=" \
 NGX_LUA_HTTP_VARIABLE_MODULE="ngx_lua_http_variable_module"
 NGX_LUA_HTTP_VARIABLE_SRCS=" \
     $ngx_addon_dir/src/http/modules/ngx_lua_http_variable_module.c"
+
+
+NGX_LUA_UDP_REQUEST_MODULE="ngx_lua_udp_request_module"
+NGX_LUA_UDP_REQUEST_SRCS="$ngx_addon_dir/src/udp/ngx_lua_udp_request_module.c"

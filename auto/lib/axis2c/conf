@@ -7,7 +7,7 @@ AXIS2C="$ngx_addon_dir/../../../lib/axis2c"
 if [ "$NGX_PLATFORM" != win32 ]; then
     AXIS2C_LIBS=" \
         -L$AXIS2C/libs/unix \
-        -laxutil -laxis2_axiom -laxis2_parser -lguththila -laxis2_minizip"
+        -laxis2_axiom -laxutil -laxis2_parser -lguththila"
 else
     AXIS2C_LIBS=" \
         $AXIS2C/libs/win32/axiom.lib \
