@@ -825,6 +825,7 @@ ngx_lua_dbd_query(void *data)
 {
     ngx_lua_dbd_ctx_t *ctx = data;
 
+    uint64_t           cols;
     ngx_int_t          rc;
     ngx_lua_thread_t  *thr;
 
@@ -843,6 +844,12 @@ ngx_lua_dbd_query(void *data)
     }
 
     /* rc == NGX_OK */
+
+    cols = ngx_dbd_result_column_count(ctx->c->dbd);
+    if (cols == 0) {
+        ngx_lua_dbd_finalize(ctx, NGX_OK);
+        return;
+    }
 
     thr = ctx->thr;
     if (thr != NULL) {
