@@ -45,14 +45,14 @@ function use_mysql(name)
   })
   if not rc then return rc, errstr end
 
-  ----[[
+  --[[
   local sql = 'create database ' .. name
   local res, errstr = dbd.execute(name, sql)
   if not res then return res, errstr end
-  ----]]
+  --]]
 
   --[[
-  local sql = 'create table logs('
+  local sql = 'create table ' .. name .. '.logs('
     .. 'id integer primary key auto_increment, '
     .. 'remote_addr text, '
     .. 'remote_user text, '
@@ -74,16 +74,19 @@ local t = func()
 if t.remote_user == '' then t.remote_user = '-' end
 if t.http_referer == '' then t.http_referer = '-' end
 
-local sql = 'insert into logs(remote_addr, remote_user, time_local, '
-  .. 'request, status, body_bytes_sent, http_referer, http_user_agent) '
+local name = 'log_db'
+local sql = 'insert into ' .. name .. '.logs(remote_addr, remote_user, '
+  .. 'time_local, request, status, body_bytes_sent, http_referer, '
+  .. 'http_user_agent) '
   .. 'values("%s", "%s", "%s", "%s", "%s", "%s", "%s", "%s")'
 sql = string.format(sql, t.remote_addr, t.remote_user, t.time_local,
   t.request, t.status, t.body_bytes_sent, t.http_referer, t.http_user_agent)
 
-local name = 'log_db'
 --local rc, errstr = use_sqlite3(name)
+----[[
 local rc, errstr = use_mysql(name)
 if not rc then log.error(log.ALERT, errstr) return end
 
 local res, errstr = dbd.execute(name, sql)
 if not res then log.error(log.ALERT, errstr) return end
+----]]

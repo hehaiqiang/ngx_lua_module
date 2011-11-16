@@ -24,7 +24,27 @@ function create_db_pool(name)
 end
 
 function test_db(name)
-  local res, errstr = db.execute(name, 'show databases')
+  --local sql = 'show databases'
+  --local sql = 'show tables'
+  local sql = 'select * from mysql.user'
+  --local sql = 'create database log_db'
+  --local sql = 'drop database log_db'
+  --[[
+  local sql = 'create table log_db.logs('
+    .. 'id integer primary key auto_increment, '
+    .. 'remote_addr text, '
+    .. 'remote_user text, '
+    .. 'time_local text, '
+    .. 'request text, '
+    .. 'status text, '
+    .. 'body_bytes_sent text, '
+    .. 'http_referer text, '
+    .. 'http_user_agent text)'
+  --]]
+  --local sql = 'drop table log_db.logs'
+  --local sql = 'select * from log_db.logs'
+
+  local res, errstr = db.execute(name, sql)
 
   if not res then print(errstr) return end
 
@@ -32,6 +52,8 @@ function test_db(name)
   print('row_count:' .. res.row_count .. '<hr>')
   print('affected_rows:' .. res.affected_rows .. '<hr>')
   print('insert_id:' .. res.insert_id .. '<hr>')
+
+  if res.col_count == 0 then return end
 
   print('<table border="1">')
   print('<tr>')

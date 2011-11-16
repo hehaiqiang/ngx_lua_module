@@ -24,7 +24,7 @@ function use_mysql(name)
     port = 3306,
     user = 'root',
     password = '123456',
-    database = name,
+    database = 'mysql',
     max_connections = 50
   })
   if not rc then print(errstr) return end
@@ -57,7 +57,7 @@ local name = 'log_db'
 local rc, errstr = use_mysql(name)
 if not rc then print(errstr) return end
 
-local sql = 'select * from logs'
+local sql = 'select * from ' .. name .. '.logs'
 local res, errstr = dbd.execute(name, sql)
 if not res then print(errstr) return end
 
