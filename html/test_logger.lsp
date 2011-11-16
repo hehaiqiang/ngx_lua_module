@@ -8,12 +8,11 @@ local log = nginx.logger
 </head>
 <body>
 <%
--- writing some messages into the log file of the nginx
 log.error(log.ALERT, "test alert" .. 1 .. 10)
 log.debug(log.DEBUG_HTTP, "test debug http")
 log.error(log.ERR, "test error")
 log.error(log.EMERG, 1000)
 %>
-please opening the log file of the nginx to view messages.
+open error.log to view messages.
 </body>
 </html>
