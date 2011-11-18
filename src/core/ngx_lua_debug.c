@@ -148,7 +148,9 @@ ngx_lua_debug_start(ngx_lua_thread_t *thr)
     /* TODO: LUA_MASKCOUNT|LUA_MASKRET */
     /* LUA_MASKCALL */
 
+#if 0
     lua_sethook(thr->l, ngx_lua_debug_hook, LUA_MASKLINE, 0);
+#endif
 
     return NGX_OK;
 }
