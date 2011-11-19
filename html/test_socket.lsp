@@ -5,26 +5,51 @@ local req = nginx.http_srv.request
 local socket = nginx.socket
 
 function test_tcp()
-  local s, errstr = socket.open('www.nginx.org:80')
+  local s, errstr = socket.open('127.0.0.1:8284', socket.TCP)
   if not s then print(errstr) return end
 
-  local n, errstr = s:send('GET / HTTP/1.1\r\nHost: www.nginx.org\r\n\r\n')
-  if not n then print(errstr) s:close() return end
+  -- login
 
-  for i = 1, 8 do
-    local data, errstr = s:recv()
-    if not data then print('<hr>', errstr) break end
-    print(data)
-  end
+  local rc, errstr = s:send('login')
+  if not rc then print(errstr) s:close() return end
+
+  local res, errstr = s:recv()
+  if not res then print(errstr) s:close() return end
+  print(res)
+
+  -- logout
+
+  local rc, errstr = s:send('logout')
+  if not rc then print(errstr) s:close() return end
+
+  local res, errstr = s:recv()
+  if not res then print(errstr) s:close() return end
+  print(res)
 
   s:close()
 end
 
 function test_udp()
-  local s, errstr = socket.open('127.0.0.1:53', socket.UDP)
+  local s, errstr = socket.open('127.0.0.1:8284', socket.UDP)
   if not s then print(errstr) return end
 
-  -- TODO: s:send() and s:recv()
+  -- login
+
+  local rc, errstr = s:send('login')
+  if not rc then print(errstr) s:close() return end
+
+  local res, errstr = s:recv()
+  if not res then print(errstr) s:close() return end
+  print(res)
+
+  -- logout
+
+  local rc, errstr = s:send('logout')
+  if not rc then print(errstr) s:close() return end
+
+  local res, errstr = s:recv()
+  if not res then print(errstr) s:close() return end
+  print(res)
 
   s:close()
 end

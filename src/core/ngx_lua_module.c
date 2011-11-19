@@ -122,6 +122,8 @@ extern ngx_module_t  ngx_lua_http_response_module;
 extern ngx_module_t  ngx_lua_session_module;
 extern ngx_module_t  ngx_lua_http_session_module;
 extern ngx_module_t  ngx_lua_http_variable_module;
+extern ngx_module_t  ngx_lua_tcp_request_module;
+extern ngx_module_t  ngx_lua_tcp_response_module;
 extern ngx_module_t  ngx_lua_udp_request_module;
 
 
@@ -147,6 +149,8 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_session_module,
     &ngx_lua_http_session_module,
     &ngx_lua_http_variable_module,
+    &ngx_lua_tcp_request_module,
+    &ngx_lua_tcp_response_module,
     &ngx_lua_udp_request_module,
 #endif
     NULL

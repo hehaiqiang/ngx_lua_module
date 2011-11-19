@@ -27,6 +27,23 @@ NGX_LUA_HTTP_SRCS=" \
     $ngx_addon_dir/src/http/ngx_lua_http_log_module.c"
 
 
+NGX_LUA_TCP_MODULES=" \
+    ngx_tcp_module \
+    ngx_tcp_core_module \
+    ngx_lua_tcp_module"
+NGX_LUA_TCP_INCS=" \
+    $ngx_addon_dir/../ngx_tcp_module/src \
+    $ngx_addon_dir/src/tcp"
+NGX_LUA_TCP_DEPS=" \
+    $ngx_addon_dir/../ngx_tcp_module/src/ngx_tcp.h \
+    $ngx_addon_dir/src/tcp/ngx_lua_tcp_module.h"
+NGX_LUA_TCP_SRCS=" \
+    $ngx_addon_dir/../ngx_tcp_module/src/ngx_tcp.c \
+    $ngx_addon_dir/../ngx_tcp_module/src/ngx_tcp_core_module.c \
+    $ngx_addon_dir/../ngx_tcp_module/src/ngx_tcp_handler.c \
+    $ngx_addon_dir/src/tcp/ngx_lua_tcp_module.c"
+
+
 NGX_LUA_UDP_MODULES=" \
     ngx_udp_module \
     ngx_udp_core_module \
@@ -125,6 +142,14 @@ NGX_LUA_HTTP_SESSION_SRCS=" \
 NGX_LUA_HTTP_VARIABLE_MODULE="ngx_lua_http_variable_module"
 NGX_LUA_HTTP_VARIABLE_SRCS=" \
     $ngx_addon_dir/src/http/modules/ngx_lua_http_variable_module.c"
+
+
+NGX_LUA_TCP_REQUEST_MODULE="ngx_lua_tcp_request_module"
+NGX_LUA_TCP_REQUEST_SRCS="$ngx_addon_dir/src/tcp/ngx_lua_tcp_request_module.c"
+
+NGX_LUA_TCP_RESPONSE_MODULE="ngx_lua_tcp_response_module"
+NGX_LUA_TCP_RESPONSE_SRCS=" \
+    $ngx_addon_dir/src/tcp/ngx_lua_tcp_response_module.c"
 
 
 NGX_LUA_UDP_REQUEST_MODULE="ngx_lua_udp_request_module"

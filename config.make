@@ -164,6 +164,26 @@ if [ $NGX_LUA_DLL = YES ]; then
         fi
     fi
 
+    if [ $NGX_LUA_TCP = YES ]; then
+        if [ $NGX_LUA_TCP_REQUEST = YES ]; then
+            lua_module="$NGX_LUA_TCP_REQUEST_MODULE"
+            lua_module_libs="$lua_module_def_libs"
+            lua_module_incs=
+            lua_module_deps=
+            lua_module_srcs="$NGX_LUA_TCP_REQUEST_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
+
+        if [ $NGX_LUA_TCP_RESPONSE = YES ]; then
+            lua_module="$NGX_LUA_TCP_RESPONSE_MODULE"
+            lua_module_libs="$lua_module_def_libs"
+            lua_module_incs=
+            lua_module_deps=
+            lua_module_srcs="$NGX_LUA_TCP_RESPONSE_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
+    fi
+
     if [ $NGX_LUA_UDP = YES ]; then
         if [ $NGX_LUA_UDP_REQUEST = YES ]; then
             lua_module="$NGX_LUA_UDP_REQUEST_MODULE"
