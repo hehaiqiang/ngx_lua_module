@@ -252,9 +252,9 @@ ngx_lua_http_output(ngx_lua_thread_t *thr, u_char *buf, size_t size)
 
     /* TODO */
 
-    if (ctx->last == NULL
-        || (size_t) (ctx->last->buf->end - ctx->last->buf->last) < size)
-    {
+    cl = ctx->last;
+
+    if (cl == NULL || (size_t) (cl->buf->end - cl->buf->last) < size) {
         cl = ngx_alloc_chain_link(thr->pool);
         if (cl == NULL) {
             return NGX_ERROR;
@@ -280,7 +280,7 @@ ngx_lua_http_output(ngx_lua_thread_t *thr, u_char *buf, size_t size)
         }
     }
 
-    b = ctx->last->buf;
+    b = cl->buf;
     b->last = ngx_copy(b->last, buf, size);
 
     return NGX_OK;
