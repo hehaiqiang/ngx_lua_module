@@ -18,6 +18,7 @@ lua_pushnumber
 lua_pushstring
 lua_pushvalue
 lua_rawgeti
+lua_rawset
 lua_rawseti
 lua_setfield
 lua_setmetatable

@@ -65,6 +65,7 @@ typedef struct ngx_lua_dbd_cleanup_ctx_s  ngx_lua_dbd_cleanup_ctx_t;
 typedef struct {
     ngx_pool_t                   *pool;
     ngx_lua_dbd_connection_t     *c;
+    ngx_str_t                    *col_names;
     uint64_t                      row_count;
     uint64_t                      col_count;
     ngx_int_t                     rc;
@@ -851,6 +852,12 @@ ngx_lua_dbd_query(void *data)
         return;
     }
 
+    ctx->col_names = ngx_palloc(ctx->pool, sizeof(ngx_str_t) * (size_t) cols);
+    if (ctx->col_names == NULL) {
+        ngx_lua_dbd_finalize(ctx, NGX_ERROR);
+        return;
+    }
+
     thr = ctx->thr;
     if (thr != NULL) {
         lua_newtable(thr->l);
@@ -869,6 +876,7 @@ ngx_lua_dbd_column(void *data)
     ngx_lua_dbd_ctx_t *ctx = data;
 
     ngx_int_t          rc;
+    ngx_str_t          name;
     ngx_lua_thread_t  *thr;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, ngx_cycle->log, 0, "lua dbd column");
@@ -898,8 +906,19 @@ ngx_lua_dbd_column(void *data)
             continue;
         }
 
+        name.data = ngx_dbd_column_name(ctx->c->dbd);
+        name.len = ngx_strlen(name.data);
+
+        ctx->col_names[ctx->col_count].data = ngx_pstrdup(ctx->pool, &name);
+        if (ctx->col_names[ctx->col_count].data == NULL) {
+            ngx_lua_dbd_finalize(ctx, NGX_ERROR);
+            return;
+        }
+
+        ctx->col_names[ctx->col_count].len = name.len;
+
         lua_getfield(thr->l, -1, "columns");
-        lua_pushstring(thr->l, (char *) ngx_dbd_column_name(ctx->c->dbd));
+        lua_pushlstring(thr->l, (char *) name.data, name.len);
         lua_rawseti(thr->l, -2, (int) ++ctx->col_count);
         lua_pop(thr->l, 1);
     }
@@ -1012,8 +1031,19 @@ ngx_lua_dbd_field(void *data)
 
         lua_getfield(thr->l, -1, "rows");
         lua_rawgeti(thr->l, -1, (int) ctx->row_count);
+
+        /* row[key] = value */
+
+        lua_pushlstring(thr->l, (char *) ctx->col_names[ctx->col_count].data,
+                        ctx->col_names[ctx->col_count].len);
+        lua_pushlstring(thr->l, (char *) value, size);
+        lua_rawset(thr->l, -3);
+
+        /* row[index] = value */
+
         lua_pushlstring(thr->l, (char *) value, size);
         lua_rawseti(thr->l, -2, (int) ++ctx->col_count);
+
         lua_pop(thr->l, 2);
     }
 
