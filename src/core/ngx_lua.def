@@ -31,6 +31,7 @@ luaL_checknumber
 luaL_checkudata
 luaL_error
 luaL_newmetatable
+luaL_optinteger
 luaL_optlstring
 luaL_optnumber
 
