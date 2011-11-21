@@ -13,7 +13,7 @@ if not data then print(errstr) end
 print(data or '')
 print('<hr>')
 
-data = data or 'test'
+data = data or '1234'
 local n, errstr = f:write(data)
 if not n then print(errstr) f:close() return end
 
