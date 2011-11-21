@@ -14,6 +14,7 @@
 #define NGX_LUA_KEY_CODE  "ngx_lua_key_code"
 
 
+static void ngx_lua_aio_read(ngx_lua_thread_t *thr);
 static void ngx_lua_aio_handler(ngx_event_t *ev);
 static void ngx_lua_handler(ngx_lua_thread_t *thr);
 static const char *ngx_lua_reader(lua_State *l, void *data, size_t *size);
@@ -292,7 +293,6 @@ ngx_lua_load_script(ngx_lua_thread_t *thr)
 {
     int                mode;
     size_t             size;
-    ssize_t            n;
     ngx_file_t        *file;
     ngx_lua_script_t  *script;
 
@@ -337,6 +337,7 @@ ngx_lua_load_script(ngx_lua_thread_t *thr)
     }
 
     file = &thr->file;
+    file->name = thr->path;
     file->log = thr->log;
 
     mode = NGX_FILE_RDONLY|NGX_FILE_NONBLOCK;
@@ -356,14 +357,22 @@ ngx_lua_load_script(ngx_lua_thread_t *thr)
         return;
     }
 
-    if (thr->aio) {
+    ngx_lua_aio_read(thr);
+}
 
-#if !(NGX_WIN32)
-        /* TODO: ngx_file_aio_read */
-        n = ngx_read_file(file, thr->lsp->pos, thr->size, 0);
-#else
+
+static void
+ngx_lua_aio_read(ngx_lua_thread_t *thr)
+{
+    ssize_t      n;
+    ngx_file_t  *file;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua aio read");
+
+    file = &thr->file;
+
+    if (thr->aio) {
         n = ngx_file_aio_read(file, thr->lsp->pos, thr->size, 0, thr->pool);
-#endif
 
     } else {
         n = ngx_read_file(file, thr->lsp->pos, thr->size, 0);
@@ -402,16 +411,7 @@ ngx_lua_aio_handler(ngx_event_t *ev)
     aio = ev->data;
     thr = aio->data;
 
-    /* TODO: error handling */
-
-    ev->complete = 0;
-
-    thr->lsp->last += ev->available;
-
-    ngx_close_file(thr->file.fd);
-    thr->file.fd = NGX_INVALID_FILE;
-
-    ngx_lua_handler(thr);
+    ngx_lua_aio_read(thr);
 }
 
 
