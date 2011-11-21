@@ -994,8 +994,7 @@ ngx_lua_dbd_field(void *data)
 {
     ngx_lua_dbd_ctx_t *ctx = data;
 
-    off_t              offset;
-    size_t             size, total;
+    size_t             size;
     u_char            *value;
     ngx_int_t          rc;
     ngx_lua_thread_t  *thr;
@@ -1004,7 +1003,9 @@ ngx_lua_dbd_field(void *data)
 
     for ( ;; ) {
 
-        rc = ngx_dbd_field_read(ctx->c->dbd, &value, &offset, &size, &total);
+        /* ngx_dbd_field_read */
+
+        rc = ngx_dbd_field_buffer(ctx->c->dbd, &value, &size);
 
         if (rc == NGX_AGAIN) {
             ctx->rc = NGX_AGAIN;
@@ -1021,8 +1022,6 @@ ngx_lua_dbd_field(void *data)
         }
 
         /* rc == NGX_OK */
-
-        /* TODO: value, offset, size, total */
 
         thr = ctx->thr;
         if (thr == NULL) {
