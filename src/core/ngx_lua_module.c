@@ -133,9 +133,15 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
 #if !(NGX_LUA_DLL)
     &ngx_lua_autorun_module,
     &ngx_lua_dahua_module,
+#if (NGX_LUA_DBD)
     &ngx_lua_dbd_module,
+#if (NGX_LUA_DBD_LIBDRIZZLE)
     &ngx_lua_dbd_libdrizzle_module,
+#endif
+#if (NGX_LUA_DBD_SQLITE3)
     &ngx_lua_dbd_sqlite3_module,
+#endif
+#endif
     &ngx_lua_file_module,
     &ngx_lua_logger_module,
     &ngx_lua_smtp_module,

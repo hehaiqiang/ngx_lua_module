@@ -93,15 +93,25 @@ if [ $NGX_LUA_DBD = YES ]; then
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_DBD_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_DBD_SRCS"
 
+    have=NGX_LUA_DBD . auto/have
+
     if [ $NGX_LUA_DBD_LIBDRIZZLE = YES ]; then
         . $ngx_addon_dir/../ngx_dbd_module/auto/lib/libdrizzle/conf
         CORE_INCS="$CORE_INCS $LIBDRIZZLE_INCS"
+        have=NGX_LUA_DBD_LIBDRIZZLE . auto/have
+    else
+        have=NGX_LUA_DBD_LIBDRIZZLE . auto/nohave
     fi
 
     if [ $NGX_LUA_DBD_SQLITE3 = YES ]; then
         . $ngx_addon_dir/../ngx_dbd_module/auto/lib/sqlite3/conf
         CORE_INCS="$CORE_INCS $SQLITE3_INCS"
+        have=NGX_LUA_DBD_SQLITE3 . auto/have
+    else
+        have=NGX_LUA_DBD_SQLITE3 . auto/nohave
     fi
+else
+    have=NGX_LUA_DBD . auto/nohave
 fi
 
 if [ $NGX_LUA_UTILS = YES ]; then
