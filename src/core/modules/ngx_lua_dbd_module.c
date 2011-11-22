@@ -847,19 +847,18 @@ ngx_lua_dbd_query(void *data)
     /* rc == NGX_OK */
 
     cols = ngx_dbd_result_column_count(ctx->c->dbd);
-    if (cols == 0) {
-        ngx_lua_dbd_finalize(ctx, NGX_OK);
-        return;
-    }
 
-    ctx->col_names = ngx_palloc(ctx->pool, sizeof(ngx_str_t) * (size_t) cols);
-    if (ctx->col_names == NULL) {
-        ngx_lua_dbd_finalize(ctx, NGX_ERROR);
-        return;
+    if (cols > 0) {
+        ctx->col_names = ngx_palloc(ctx->pool,
+                                    sizeof(ngx_str_t) * (size_t) cols);
+        if (ctx->col_names == NULL) {
+            ngx_lua_dbd_finalize(ctx, NGX_ERROR);
+            return;
+        }
     }
 
     thr = ctx->thr;
-    if (thr != NULL) {
+    if (thr != NULL && cols > 0) {
         lua_newtable(thr->l);
         lua_setfield(thr->l, -2, "columns");
     }
@@ -875,6 +874,7 @@ ngx_lua_dbd_column(void *data)
 {
     ngx_lua_dbd_ctx_t *ctx = data;
 
+    uint64_t           cols;
     ngx_int_t          rc;
     ngx_str_t          name;
     ngx_lua_thread_t  *thr;
@@ -925,8 +925,10 @@ ngx_lua_dbd_column(void *data)
 
     /* rc == NGX_DONE */
 
+    cols = ngx_dbd_result_column_count(ctx->c->dbd);
+
     thr = ctx->thr;
-    if (thr != NULL) {
+    if (thr != NULL && cols > 0) {
         lua_newtable(thr->l);
         lua_setfield(thr->l, -2, "rows");
     }
