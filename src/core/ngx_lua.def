@@ -56,6 +56,8 @@ ngx_file_aio_read
 ngx_file_aio_write
 ngx_file_size
 ngx_gettimeofday
+ngx_handle_read_event
+ngx_handle_write_event
 ngx_hash_strlow
 ngx_hex_dump
 ngx_http_arg
