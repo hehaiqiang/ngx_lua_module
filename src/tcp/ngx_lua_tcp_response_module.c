@@ -153,6 +153,13 @@ ngx_lua_tcp_response_write_handler(ngx_event_t *wev)
         if (cl != NULL) {
             /* TODO */
             ngx_add_timer(wev, 60000);
+
+            if (ngx_handle_write_event(wev, 0) != NGX_OK) {
+                errstr = "ngx_handle_write_event() failed";
+                n = NGX_ERROR;
+                goto done;
+            }
+
             ctx->rc = NGX_AGAIN;
             return;
         }

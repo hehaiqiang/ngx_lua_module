@@ -168,6 +168,13 @@ ngx_lua_tcp_request_read_handler(ngx_event_t *rev)
         if (n == NGX_AGAIN) {
             /* TODO */
             ngx_add_timer(rev, 60000);
+
+            if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+                errstr = "ngx_handle_read_event() failed";
+                n = NGX_ERROR;
+                goto done;
+            }
+
             ctx->rc = NGX_AGAIN;
             return;
         }
