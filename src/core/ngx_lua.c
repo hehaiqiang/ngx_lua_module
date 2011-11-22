@@ -418,6 +418,7 @@ ngx_lua_aio_handler(ngx_event_t *ev)
 static void
 ngx_lua_handler(ngx_lua_thread_t *thr)
 {
+    u_char          *name;
     ngx_int_t        rc;
     ngx_str_t        str;
     ngx_lua_conf_t  *lcf;
@@ -440,7 +441,12 @@ ngx_lua_handler(ngx_lua_thread_t *thr)
 
     lcf = (ngx_lua_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx, ngx_lua_module);
 
-    rc = lua_load(lcf->l, ngx_lua_reader, thr, (char *) thr->path.data);
+    name = thr->path.data;
+    if (thr->path.len > 43) {
+        name += thr->path.len - 43;
+    }
+
+    rc = lua_load(lcf->l, ngx_lua_reader, thr, (char *) name);
     if (rc != 0) {
         if (lua_isstring(lcf->l, -1)) {
             str.data = (u_char *) lua_tolstring(lcf->l, -1, &str.len);
@@ -590,8 +596,8 @@ ngx_lua_set_path(lua_State *l, char *key, ngx_str_t *value)
     lua_pushlstring(l, (char *) value->data, value->len);
     new = (char *) lua_tostring(l, -1);
 
-    temp = (char *) luaL_gsub(l, new, ";;", ";\0;");
-    luaL_gsub(l, temp, "\0", old);
+    temp = (char *) luaL_gsub(l, new, ";;", ";\1;");
+    luaL_gsub(l, temp, "\1", old);
     lua_remove(l, -2);
 
     lua_setfield(l, -4, key);
