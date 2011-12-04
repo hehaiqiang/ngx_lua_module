@@ -63,6 +63,7 @@ ngx_hex_dump
 ngx_http_arg
 ngx_http_get_variable
 ngx_http_parse_multi_header_lines
+ngx_list_push
 ngx_log_error_core
 ngx_lua_check_script
 ngx_lua_load_script

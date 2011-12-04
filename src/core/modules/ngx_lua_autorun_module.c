@@ -249,7 +249,7 @@ ngx_lua_autorun_process_exit(ngx_cycle_t *cycle)
     }
 
     if (lacf->thr != NULL) {
-        ngx_lua_thread_destroy(lacf->thr);
+        ngx_lua_thread_destroy(lacf->thr, 1);
 
         ngx_destroy_pool(lacf->thr->pool);
     }

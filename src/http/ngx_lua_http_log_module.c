@@ -161,7 +161,7 @@ ngx_lua_http_log_handler(ngx_http_request_t *r)
 
     ngx_lua_load_script(thr);
 
-    ngx_lua_thread_destroy(thr);
+    ngx_lua_thread_destroy(thr, 1);
 
     return NGX_DONE;
 }

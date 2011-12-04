@@ -107,10 +107,12 @@ ngx_lua_thread_create(ngx_lua_thread_t *thr)
     }
 
     lua_newtable(thr->l);
+
     lua_createtable(thr->l, 0, 1);
     lua_pushvalue(thr->l, LUA_GLOBALSINDEX);
     lua_setfield(thr->l, -2, "__index");
     lua_setmetatable(thr->l, -2);
+
     lua_replace(thr->l, LUA_GLOBALSINDEX);
 
     thr->ref = luaL_ref(lcf->l, -2);
@@ -143,7 +145,7 @@ ngx_lua_thread_create(ngx_lua_thread_t *thr)
 
 
 void
-ngx_lua_thread_destroy(ngx_lua_thread_t *thr)
+ngx_lua_thread_destroy(ngx_lua_thread_t *thr, ngx_uint_t force)
 {
     lua_State       *l;
     ngx_lua_conf_t  *lcf;
@@ -171,25 +173,24 @@ ngx_lua_thread_destroy(ngx_lua_thread_t *thr)
     l = lua_tothread(lcf->l, -1);
     lua_pop(lcf->l, 1);
 
-    if (thr->l != l) {
-        return;
+    if (l != NULL && force) {
+        lua_getglobal(l, NGX_LUA_KEY_CODE);
+        lua_getfenv(l, -1);
+        lua_xmove(l, lcf->l, 1);
+
+        lua_newtable(l);
+        lua_setfenv(l, -2);
+
+        do {
+            lua_settop(l, 0);
+        } while (lua_resume(l, 0) == LUA_YIELD);
+
+        lua_settop(l, 0);
+        lua_getglobal(l, NGX_LUA_KEY_CODE);
+        lua_xmove(lcf->l, l, 1);
+        lua_setfenv(l, -2);
+        lua_pop(l, 1);
     }
-
-    lua_getglobal(thr->l, NGX_LUA_KEY_CODE);
-    lua_getfenv(thr->l, -1);
-    lua_xmove(thr->l, lcf->l, 1);
-    lua_newtable(thr->l);
-    lua_setfenv(thr->l, -2);
-
-    do {
-        lua_settop(thr->l, 0);
-    } while (lua_resume(thr->l, 0) == LUA_YIELD);
-
-    lua_settop(thr->l, 0);
-    lua_getglobal(thr->l, NGX_LUA_KEY_CODE);
-    lua_xmove(lcf->l, thr->l, 1);
-    lua_setfenv(thr->l, -2);
-    lua_pop(thr->l, 1);
 
     luaL_unref(lcf->l, -1, thr->ref);
     lua_pop(lcf->l, 1);
@@ -206,12 +207,15 @@ ngx_lua_thread_run(ngx_lua_thread_t *thr, int n)
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua thread run");
 
+    /* TODO: handling exception */
+
     rc = lua_resume(thr->l, n);
 
     ngx_log_debug1(NGX_LOG_DEBUG_CORE, thr->log, 0, "lua_resume() rc:%d", rc);
 
     switch (rc) {
     case 0:
+        ngx_lua_thread_destroy(thr, 0);
         return NGX_OK;
     case LUA_YIELD:
         lua_settop(thr->l, 0);
@@ -231,6 +235,8 @@ ngx_lua_thread_run(ngx_lua_thread_t *thr, int n)
         ngx_log_error(NGX_LOG_ALERT, thr->log, 0,
                       "lua_resume() failed (%d:%V)", rc, &str);
     }
+
+    ngx_lua_thread_destroy(thr, 0);
 
     return NGX_ERROR;
 }

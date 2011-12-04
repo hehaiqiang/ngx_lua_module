@@ -182,7 +182,7 @@ ngx_lua_tcp_close_session(ngx_tcp_session_t *s)
 
     thr = ngx_tcp_get_module_ctx(s, ngx_lua_tcp_module);
 
-    ngx_lua_thread_destroy(thr);
+    ngx_lua_thread_destroy(thr, 1);
 }
 
 

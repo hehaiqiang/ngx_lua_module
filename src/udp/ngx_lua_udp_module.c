@@ -182,7 +182,7 @@ ngx_lua_udp_close_session(ngx_udp_session_t *s)
 
     thr = ngx_udp_get_module_ctx(s, ngx_lua_udp_module);
 
-    ngx_lua_thread_destroy(thr);
+    ngx_lua_thread_destroy(thr, 1);
 }
 
 

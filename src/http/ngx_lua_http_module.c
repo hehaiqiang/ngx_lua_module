@@ -351,7 +351,7 @@ ngx_lua_http_cleanup(void *data)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, thr->log, 0, "lua http cleanup");
 
-    ngx_lua_thread_destroy(thr);
+    ngx_lua_thread_destroy(thr, 1);
 }
 
 

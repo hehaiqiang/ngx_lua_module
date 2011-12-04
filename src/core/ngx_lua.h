@@ -91,7 +91,7 @@ struct ngx_lua_thread_s {
 ngx_int_t ngx_lua_create(ngx_cycle_t *cycle, ngx_lua_conf_t *lcf);
 void ngx_lua_destroy(void *data);
 ngx_int_t ngx_lua_thread_create(ngx_lua_thread_t *thr);
-void ngx_lua_thread_destroy(ngx_lua_thread_t *thr);
+void ngx_lua_thread_destroy(ngx_lua_thread_t *thr, ngx_uint_t force);
 ngx_int_t ngx_lua_thread_run(ngx_lua_thread_t *thr, int n);
 ngx_lua_thread_t *ngx_lua_thread(lua_State *l);
 ngx_int_t ngx_lua_check_script(ngx_lua_thread_t *thr);

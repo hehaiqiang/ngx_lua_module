@@ -5,6 +5,8 @@
 ngx_addon_name=ngx_lua_module
 
 
+NGX_LUAJIT=YES
+
 NGX_LUA_DLL=YES
 
 NGX_LUA_AUTORUN=YES
@@ -44,13 +46,15 @@ if [ "$NGX_PLATFORM" != win32 ]; then
 fi
 
 
-. $ngx_addon_dir/auto/lib/lua/conf
-CORE_LIBS="$CORE_LIBS $LUA_LIBS"
-CORE_INCS="$CORE_INCS $LUA_INCS"
-
-#. $ngx_addon_dir/auto/lib/luajit/conf
-#CORE_LIBS="$CORE_LIBS $LUAJIT_LIBS"
-#CORE_INCS="$CORE_INCS $LUAJIT_INCS"
+if [ "$NGX_LUAJIT" == NO ]; then
+    . $ngx_addon_dir/auto/lib/lua/conf
+    CORE_LIBS="$CORE_LIBS $LUA_LIBS"
+    CORE_INCS="$CORE_INCS $LUA_INCS"
+else
+    . $ngx_addon_dir/auto/lib/luajit/conf
+    CORE_LIBS="$CORE_LIBS $LUAJIT_LIBS"
+    CORE_INCS="$CORE_INCS $LUAJIT_INCS"
+fi
 
 
 . $ngx_addon_dir/auto/sources

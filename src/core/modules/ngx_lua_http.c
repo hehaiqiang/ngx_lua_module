@@ -190,10 +190,6 @@ ngx_lua_http(lua_State *l)
     peer->connection->read->handler = ngx_lua_http_dummy_handler;
     peer->connection->write->handler = ngx_lua_http_connect_handler;
 
-    lua_createtable(l, 1, 3);
-    lua_createtable(l, 0, 16);
-    lua_setfield(l, -2, "headers");
-
     if (rc == NGX_AGAIN) {
         ngx_add_timer(peer->connection->write, ctx->connect_timeout);
         return lua_yield(l, 0);
@@ -421,6 +417,8 @@ ngx_lua_http_connect_handler(ngx_event_t *wev)
     }
 
     ctx->request = b;
+
+    ctx->headers.nelts = 0;
 
     ctx->response = ngx_create_temp_buf(ctx->pool, ngx_pagesize);
     if (ctx->response == NULL) {
@@ -1023,6 +1021,8 @@ ngx_lua_http_parse_headers(ngx_lua_http_ctx_t *ctx)
 {
     u_char            *p, ch;
     ngx_int_t          rc;
+    ngx_str_t          str;
+    ngx_keyval_t      *header;
     ngx_lua_thread_t  *thr;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, ngx_cycle->log, 0,
@@ -1078,11 +1078,22 @@ ngx_lua_http_parse_headers(ngx_lua_http_ctx_t *ctx)
 
         *ctx->header_name_end = '\0';
 
-        lua_getfield(thr->l, -1, "headers");
-        lua_pushlstring(thr->l, (char *) ctx->header_start,
-                        ctx->header_end - ctx->header_start);
-        lua_setfield(thr->l, -2, (char *) ctx->header_name_start);
-        lua_pop(thr->l, 1);
+        header = ngx_array_push(&ctx->headers);
+        if (header == NULL) {
+            return NGX_ERROR;
+        }
+
+        str.len = ctx->header_name_end - ctx->header_name_start + 1;
+        str.data = ctx->header_name_start;
+
+        header->key.len = str.len;
+        header->key.data = ngx_pstrdup(ctx->pool, &str);
+
+        str.len = ctx->header_end - ctx->header_start;
+        str.data = ctx->header_start;
+
+        header->value.len = str.len;
+        header->value.data = ngx_pstrdup(ctx->pool, &str);
     }
 }
 
@@ -1174,6 +1185,8 @@ static void
 ngx_lua_http_finalize(ngx_lua_http_ctx_t *ctx, char *errstr)
 {
     ngx_int_t          rc;
+    ngx_uint_t         i;
+    ngx_keyval_t      *headers;
     ngx_lua_thread_t  *thr;
 
     ngx_log_debug0(NGX_LOG_DEBUG_CORE, ngx_cycle->log, 0, "lua http finalize");
@@ -1196,6 +1209,19 @@ ngx_lua_http_finalize(ngx_lua_http_ctx_t *ctx, char *errstr)
     ctx->rc = 1;
 
     if (errstr == NULL) {
+        lua_createtable(thr->l, 1, 3);
+
+        lua_createtable(thr->l, 0, ctx->headers.nelts);
+
+        headers = ctx->headers.elts;
+        for (i = 0; i < ctx->headers.nelts; i++) {
+            lua_pushlstring(thr->l, (char *) headers[i].value.data,
+                            headers[i].value.len);
+            lua_setfield(thr->l, -2, (char *) headers[i].key.data);
+        }
+
+        lua_setfield(thr->l, -2, "headers");
+
         lua_pushnumber(thr->l, ctx->status_code);
         lua_setfield(thr->l, -2, "status");
 
@@ -1214,7 +1240,6 @@ ngx_lua_http_finalize(ngx_lua_http_ctx_t *ctx, char *errstr)
         lua_setfield(thr->l, -2, "body");
 
     } else {
-        lua_pop(thr->l, 1);
         lua_pushboolean(thr->l, 0);
         lua_pushstring(thr->l, errstr);
 
