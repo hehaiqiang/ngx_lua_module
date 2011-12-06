@@ -15,16 +15,19 @@ NGX_LUA_SRCS=" \
     $ngx_addon_dir/src/core/ngx_lua_parser.c"
 
 
-NGX_LUA_HTTP_MODULES=" \
-    ngx_lua_http_module \
-    ngx_lua_http_log_module"
+NGX_LUA_HTTP_MODULE="ngx_lua_http_module"
 NGX_LUA_HTTP_INCS=" \
     $ngx_addon_dir/src/http \
     $ngx_addon_dir/src/http/modules"
 NGX_LUA_HTTP_DEPS="$ngx_addon_dir/src/http/ngx_lua_http_module.h"
-NGX_LUA_HTTP_SRCS=" \
-    $ngx_addon_dir/src/http/ngx_lua_http_module.c \
-    $ngx_addon_dir/src/http/ngx_lua_http_log_module.c"
+NGX_LUA_HTTP_SRCS="$ngx_addon_dir/src/http/ngx_lua_http_module.c"
+
+NGX_LUA_HTTP_LOG_MODULE="ngx_lua_http_log_module"
+NGX_LUA_HTTP_LOG_INCS=" \
+    $ngx_addon_dir/src/http \
+    $ngx_addon_dir/src/http/modules"
+NGX_LUA_HTTP_LOG_DEPS="$ngx_addon_dir/src/http/ngx_lua_http_module.h"
+NGX_LUA_HTTP_LOG_SRCS="$ngx_addon_dir/src/http/ngx_lua_http_log_module.c"
 
 
 NGX_LUA_TCP_MODULES=" \

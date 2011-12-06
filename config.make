@@ -126,7 +126,7 @@ if [ $NGX_LUA_DLL = YES ]; then
         . $ngx_addon_dir/auto/make
     fi
 
-    if [ $NGX_LUA_HTTP = YES ]; then
+    if [ $NGX_LUA_HTTP = YES -o $NGX_LUA_HTTP_LOG = YES ]; then
         if [ $NGX_LUA_HTTP_REQUEST = YES ]; then
             lua_module="$NGX_LUA_HTTP_REQUEST_MODULE"
             lua_module_libs="$lua_module_def_libs"
