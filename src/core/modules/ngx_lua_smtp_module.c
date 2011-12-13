@@ -184,6 +184,9 @@ ngx_lua_smtp_send(lua_State *l)
 
     peer = &ctx->peer;
 
+#if (NGX_UDT)
+    peer->type = SOCK_STREAM;
+#endif
     peer->sockaddr = ctx->u.addrs->sockaddr;
     peer->socklen = ctx->u.addrs->socklen;
     peer->name = &ctx->u.addrs->name;

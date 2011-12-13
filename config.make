@@ -195,6 +195,26 @@ if [ $NGX_LUA_DLL = YES ]; then
         fi
     fi
 
+    if [ $NGX_LUA_UDT = YES ]; then
+        if [ $NGX_LUA_UDT_REQUEST = YES ]; then
+            lua_module="$NGX_LUA_UDT_REQUEST_MODULE"
+            lua_module_libs="$lua_module_def_libs"
+            lua_module_incs=
+            lua_module_deps=
+            lua_module_srcs="$NGX_LUA_UDT_REQUEST_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
+
+        if [ $NGX_LUA_UDT_RESPONSE = YES ]; then
+            lua_module="$NGX_LUA_UDT_RESPONSE_MODULE"
+            lua_module_libs="$lua_module_def_libs"
+            lua_module_incs=
+            lua_module_deps=
+            lua_module_srcs="$NGX_LUA_UDT_RESPONSE_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
+    fi
+
 
     cat << END                                                >> $NGX_MAKEFILE
 

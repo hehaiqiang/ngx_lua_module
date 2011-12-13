@@ -164,6 +164,9 @@ ngx_lua_http(lua_State *l)
 
     peer = &ctx->peer;
 
+#if (NGX_UDT)
+    peer->type = SOCK_STREAM;
+#endif
     peer->sockaddr = ctx->u.addrs->sockaddr;
     peer->socklen = ctx->u.addrs->socklen;
     peer->name = &ctx->u.addrs->name;
@@ -460,7 +463,7 @@ ngx_lua_http_write_handler(ngx_event_t *wev)
 
         size = b->last - b->pos;
 
-        n = ngx_send(c, b->pos, size);
+        n = c->send(c, b->pos, size);
 
         if (n > 0) {
             b->pos += n;
@@ -487,7 +490,7 @@ ngx_lua_http_write_handler(ngx_event_t *wev)
 
         /* n == NGX_ERROR || n == 0 */
 
-        ngx_lua_http_finalize(ctx, "ngx_send() failed");
+        ngx_lua_http_finalize(ctx, "c->send() failed");
         return;
     }
 }
@@ -518,11 +521,11 @@ ngx_lua_http_read_handler(ngx_event_t *rev)
         ngx_del_timer(rev);
     }
 
-    b = ctx->response;
-
     while (1) {
 
-        n = ngx_recv(c, b->last, b->end - b->last);
+        b = ctx->response;
+
+        n = c->recv(c, b->last, b->end - b->last);
 
         if (n > 0) {
             b->last += n;
@@ -556,7 +559,7 @@ ngx_lua_http_read_handler(ngx_event_t *rev)
 
         /* n == NGX_ERROR || n == 0 */
 
-        ngx_lua_http_finalize(ctx, "ngx_recv() failed");
+        ngx_lua_http_finalize(ctx, "c->recv() failed");
         return;
     }
 }

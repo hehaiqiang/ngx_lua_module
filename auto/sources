@@ -66,6 +66,27 @@ NGX_LUA_UDP_SRCS=" \
     $ngx_addon_dir/src/udp/ngx_lua_udp_module.c"
 
 
+NGX_LUA_UDT_MODULES=" \
+    ngx_event_udt_module \
+    ngx_udt_module \
+    ngx_udt_core_module \
+    ngx_lua_udt_module"
+NGX_LUA_UDT_INCS=" \
+    $ngx_addon_dir/../ngx_udt_module/src \
+    $ngx_addon_dir/src/udt"
+NGX_LUA_UDT_DEPS=" \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_udt.h \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_socket.h \
+    $ngx_addon_dir/src/udt/ngx_lua_udt_module.h"
+NGX_LUA_UDT_SRCS=" \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_event_udt_module.cpp \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_socket.cpp \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_udt.c \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_core_module.c \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_handler.c \
+    $ngx_addon_dir/src/udt/ngx_lua_udt_module.c"
+
+
 NGX_LUA_AUTORUN_MODULE="ngx_lua_autorun_module"
 NGX_LUA_AUTORUN_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_autorun_module.c"
 
@@ -157,3 +178,11 @@ NGX_LUA_TCP_RESPONSE_SRCS=" \
 
 NGX_LUA_UDP_REQUEST_MODULE="ngx_lua_udp_request_module"
 NGX_LUA_UDP_REQUEST_SRCS="$ngx_addon_dir/src/udp/ngx_lua_udp_request_module.c"
+
+
+NGX_LUA_UDT_REQUEST_MODULE="ngx_lua_udt_request_module"
+NGX_LUA_UDT_REQUEST_SRCS="$ngx_addon_dir/src/udt/ngx_lua_udt_request_module.c"
+
+NGX_LUA_UDT_RESPONSE_MODULE="ngx_lua_udt_response_module"
+NGX_LUA_UDT_RESPONSE_SRCS=" \
+    $ngx_addon_dir/src/udt/ngx_lua_udt_response_module.c"

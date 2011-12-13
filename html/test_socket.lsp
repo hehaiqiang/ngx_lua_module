@@ -54,8 +54,37 @@ function test_udp()
   s:close()
 end
 
-if req['type'] == 'udp' then
+function test_udt()
+  local s, errstr = socket.open('127.0.0.1:9000', socket.UDT)
+  if not s then print(errstr) return end
+
+  -- login
+
+  local rc, errstr = s:send('login')
+  if not rc then print(errstr) s:close() return end
+
+  local res, errstr = s:recv()
+  if not res then print(errstr) s:close() return end
+  print(res)
+
+  -- logout
+
+  local rc, errstr = s:send('logout')
+  if not rc then print(errstr) s:close() return end
+
+  local res, errstr = s:recv()
+  if not res then print(errstr) s:close() return end
+  print(res)
+
+  s:close()
+end
+
+local type = req['type']
+
+if type == 'udp' then
   test_udp()
+elseif type == 'udt' then
+  test_udt()
 else
   test_tcp()
 end

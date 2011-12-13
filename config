@@ -42,6 +42,10 @@ NGX_LUA_TCP_RESPONSE=YES
 NGX_LUA_UDP=YES
 NGX_LUA_UDP_REQUEST=YES
 
+NGX_LUA_UDT=YES
+NGX_LUA_UDT_REQUEST=YES
+NGX_LUA_UDT_RESPONSE=YES
+
 
 if [ "$NGX_PLATFORM" != win32 ]; then
     CORE_LINK="$CORE_LINK -ldl"
@@ -93,6 +97,19 @@ if [ $NGX_LUA_UDP = YES ]; then
     CORE_INCS="$CORE_INCS $NGX_LUA_UDP_INCS"
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_UDP_DEPS"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_UDP_SRCS"
+fi
+
+if [ $NGX_LUA_UDT = YES ]; then
+    . $ngx_addon_dir/../ngx_udt_module/auto/lib/udt/conf
+    CORE_LIBS="$CORE_LIBS $UDT_LIBS"
+    CORE_INCS="$CORE_INCS $UDT_INCS"
+
+    EVENT_MODULES="$EVENT_MODULES $NGX_LUA_UDT_MODULES"
+    CORE_INCS="$CORE_INCS $NGX_LUA_UDT_INCS"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $NGX_LUA_UDT_DEPS"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_UDT_SRCS"
+
+    have=NGX_UDT . auto/have
 fi
 
 
@@ -222,6 +239,16 @@ if [ $NGX_LUA_DLL = NO ]; then
     if [ $NGX_LUA_UDP = YES ]; then
         if [ $NGX_LUA_UDP_REQUEST = YES ]; then
             NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_UDP_REQUEST_SRCS"
+        fi
+    fi
+
+    if [ $NGX_LUA_UDT = YES ]; then
+        if [ $NGX_LUA_UDT_REQUEST = YES ]; then
+            NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_UDT_REQUEST_SRCS"
+        fi
+
+        if [ $NGX_LUA_UDT_RESPONSE = YES ]; then
+            NGX_ADDON_SRCS="$NGX_ADDON_SRCS $NGX_LUA_UDT_RESPONSE_SRCS"
         fi
     fi
 

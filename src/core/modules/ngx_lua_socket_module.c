@@ -14,6 +14,9 @@
 
 #define NGX_LUA_SOCKET_TCP  1
 #define NGX_LUA_SOCKET_UDP  2
+#if (NGX_UDT)
+#define NGX_LUA_SOCKET_UDT  3
+#endif
 
 
 typedef struct ngx_lua_socket_cleanup_ctx_s  ngx_lua_socket_cleanup_ctx_t;
@@ -201,6 +204,14 @@ ngx_lua_socket_open(lua_State *l)
 
     peer = &ctx->peer;
 
+#if (NGX_UDT)
+    if (type == NGX_LUA_SOCKET_UDT) {
+        peer->type = SOCK_UDT;
+
+    } else {
+        peer->type = SOCK_STREAM;
+    }
+#endif
     peer->sockaddr = u.addrs->sockaddr;
     peer->socklen = u.addrs->socklen;
     peer->name = &u.addrs->name;
@@ -271,7 +282,7 @@ ngx_lua_socket_close(lua_State *l)
 
     ctx = ngx_lua_socket(l);
 
-    if (ctx->type == NGX_LUA_SOCKET_TCP) {
+    if (ctx->type != NGX_LUA_SOCKET_UDP) {
         if (ctx->peer.connection) {
             ngx_close_connection(ctx->peer.connection);
             ctx->peer.connection = NULL;
@@ -556,7 +567,7 @@ ngx_lua_socket_write_handler(ngx_event_t *wev)
 
         size = b->last - b->pos;
 
-        n = ngx_send(c, b->pos, size);
+        n = c->send(c, b->pos, size);
 
         if (n > 0) {
             b->pos += n;
@@ -650,7 +661,7 @@ ngx_lua_socket_read_handler(ngx_event_t *rev)
 
     while (1) {
 
-        n = ngx_recv(c, b->last, b->end - b->last);
+        n = c->recv(c, b->last, b->end - b->last);
 
         if (n > 0) {
             b->last += n;
@@ -775,22 +786,39 @@ ngx_lua_socket_udp_send(lua_State *l, ngx_lua_thread_t *thr,
         goto error;
     }
 
+#if (NGX_UDT)
+    n = ngx_sendto(uc->connection->fd, (char *) str->data, str->len, 0,
+                   uc->sockaddr, uc->socklen);
+#else
     n = sendto(uc->connection->fd, (char *) str->data, str->len, 0,
                uc->sockaddr, uc->socklen);
+#endif
 
     /* TODO: n == 0 */
 
     if (n == -1) {
+#if (NGX_UDT)
+        ngx_connection_error(uc->connection, ngx_socket_errno,
+                             "ngx_sendto() failed");
+        errstr = "ngx_sendto() failed";
+#else
         ngx_connection_error(uc->connection, ngx_socket_errno,
                              "sendto() failed");
         errstr = "sendto() failed";
+#endif
         goto error;
     }
 
     if ((size_t) n != str->len) {
+#if (NGX_UDT)
+        ngx_log_error(NGX_LOG_CRIT, thr->log, 0,
+                      "ngx_sendto() incomplete n:%z size:%uz", n, str->len);
+        errstr = "ngx_sendto() incomplete";
+#else
         ngx_log_error(NGX_LOG_CRIT, thr->log, 0,
                       "sendto() incomplete n:%z size:%uz", n, str->len);
         errstr = "sendto() incomplete";
+#endif
         goto error;
     }
 
@@ -878,14 +906,6 @@ ngx_lua_socket_udp_read_handler(ngx_event_t *rev)
 
     if (n == NGX_AGAIN) {
         ngx_add_timer(rev, ctx->read_timeout);
-
-#if 0
-        if (ngx_handle_read_event(rev, 0) != NGX_OK) {
-            n = NGX_ERROR;
-            goto done;
-        }
-#endif
-
         ctx->rc = NGX_AGAIN;
         return;
     }
@@ -958,6 +978,11 @@ ngx_lua_socket_module_init(ngx_cycle_t *cycle)
     lua_setfield(lcf->l, -2, "TCP");
     lua_pushinteger(lcf->l, NGX_LUA_SOCKET_UDP);
     lua_setfield(lcf->l, -2, "UDP");
+#if (NGX_UDT)
+    lua_pushinteger(lcf->l, NGX_LUA_SOCKET_UDT);
+    lua_setfield(lcf->l, -2, "UDT");
+#endif
+
     lua_pushcfunction(lcf->l, ngx_lua_socket_open);
     lua_setfield(lcf->l, -2, "open");
 
