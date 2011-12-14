@@ -67,7 +67,8 @@ NGX_LUA_UDP_SRCS=" \
 
 
 NGX_LUA_UDT_MODULES=" \
-    ngx_event_udt_module \
+    ngx_udt_epoll_module \
+    ngx_udt_select_module \
     ngx_udt_module \
     ngx_udt_core_module \
     ngx_lua_udt_module"
@@ -79,7 +80,8 @@ NGX_LUA_UDT_DEPS=" \
     $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_socket.h \
     $ngx_addon_dir/src/udt/ngx_lua_udt_module.h"
 NGX_LUA_UDT_SRCS=" \
-    $ngx_addon_dir/../ngx_udt_module/src/ngx_event_udt_module.cpp \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_epoll_module.cpp \
+    $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_select_module.cpp \
     $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_socket.cpp \
     $ngx_addon_dir/../ngx_udt_module/src/ngx_udt.c \
     $ngx_addon_dir/../ngx_udt_module/src/ngx_udt_core_module.c \
