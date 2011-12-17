@@ -15,7 +15,9 @@
 
 
 static void ngx_lua_aio_read(ngx_lua_thread_t *thr);
-static void ngx_lua_aio_handler(ngx_event_t *ev);
+#if (NGX_HAVE_FILE_AIO)
+static void ngx_lua_aio_read_handler(ngx_event_t *ev);
+#endif
 static void ngx_lua_handler(ngx_lua_thread_t *thr);
 static const char *ngx_lua_reader(lua_State *l, void *data, size_t *size);
 static int ngx_lua_writer(lua_State *l, const void *buf, size_t size,
@@ -377,12 +379,16 @@ ngx_lua_aio_read(ngx_lua_thread_t *thr)
 
     file = &thr->file;
 
+#if (NGX_HAVE_FILE_AIO)
     if (thr->aio) {
         n = ngx_file_aio_read(file, thr->lsp->pos, thr->size, 0, thr->pool);
 
     } else {
         n = ngx_read_file(file, thr->lsp->pos, thr->size, 0);
     }
+#else
+    n = ngx_read_file(file, thr->lsp->pos, thr->size, 0);
+#endif
 
     if (n == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
@@ -391,11 +397,13 @@ ngx_lua_aio_read(ngx_lua_thread_t *thr)
         return;
     }
 
+#if (NGX_HAVE_FILE_AIO)
     if (n == NGX_AGAIN) {
         file->aio->data = thr;
-        file->aio->handler = ngx_lua_aio_handler;
+        file->aio->handler = ngx_lua_aio_read_handler;
         return;
     }
+#endif
 
     thr->lsp->last += n;
 
@@ -406,19 +414,21 @@ ngx_lua_aio_read(ngx_lua_thread_t *thr)
 }
 
 
+#if (NGX_HAVE_FILE_AIO)
 static void
-ngx_lua_aio_handler(ngx_event_t *ev)
+ngx_lua_aio_read_handler(ngx_event_t *ev)
 {
     ngx_event_aio_t   *aio;
     ngx_lua_thread_t  *thr;
 
-    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua aio handler");
+    ngx_log_debug0(NGX_LOG_DEBUG_CORE, ev->log, 0, "lua aio read handler");
 
     aio = ev->data;
     thr = aio->data;
 
     ngx_lua_aio_read(thr);
 }
+#endif
 
 
 static void

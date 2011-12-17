@@ -12,6 +12,7 @@ CONF_ARGS= \
 	$(CORE_CONF_ARGS) \
 	--with-file-aio \
 	--with-debug \
+	--with-select_module \
 	$(PCRE_CONF_ARGS) \
 	$(SHA1_CONF_ARGS) \
 	$(HTTP_CONF_ARGS) \

@@ -47,10 +47,14 @@ static void ngx_lua_file_cleanup(void *data);
 
 static ngx_int_t ngx_lua_file_aio_read(ngx_lua_thread_t *thr,
     ngx_lua_file_ctx_t *ctx);
+#if (NGX_HAVE_FILE_AIO)
 static void ngx_lua_file_aio_read_handler(ngx_event_t *ev);
+#endif
 static ngx_int_t ngx_lua_file_aio_write(ngx_lua_thread_t *thr,
     ngx_lua_file_ctx_t *ctx);
+#if (NGX_HAVE_FILE_AIO)
 static void ngx_lua_file_aio_write_handler(ngx_event_t *ev);
+#endif
 
 static ngx_int_t ngx_lua_file_module_init(ngx_cycle_t *cycle);
 
@@ -528,7 +532,11 @@ ngx_lua_file_aio_read(ngx_lua_thread_t *thr, ngx_lua_file_ctx_t *ctx)
     file = &ctx->file;
     b = ctx->in;
 
+#if (NGX_HAVE_FILE_AIO)
     n = ngx_file_aio_read(file, b->start, ctx->size, ctx->offset, ctx->pool);
+#else
+    n = ngx_read_file(file, b->start, ctx->size, ctx->offset);
+#endif
 
     if (n == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ALERT, thr->log, ngx_errno,
@@ -538,11 +546,13 @@ ngx_lua_file_aio_read(ngx_lua_thread_t *thr, ngx_lua_file_ctx_t *ctx)
         return 2;
     }
 
+#if (NGX_HAVE_FILE_AIO)
     if (n == NGX_AGAIN) {
         ctx->file.aio->data = ctx;
         ctx->file.aio->handler = ngx_lua_file_aio_read_handler;
         return NGX_AGAIN;
     }
+#endif
 
     ctx->offset += n;
 
@@ -552,6 +562,7 @@ ngx_lua_file_aio_read(ngx_lua_thread_t *thr, ngx_lua_file_ctx_t *ctx)
 }
 
 
+#if (NGX_HAVE_FILE_AIO)
 static void
 ngx_lua_file_aio_read_handler(ngx_event_t *ev)
 {
@@ -577,6 +588,7 @@ ngx_lua_file_aio_read_handler(ngx_event_t *ev)
 
     ngx_lua_finalize(ctx->thr, rc);
 }
+#endif
 
 
 static ngx_int_t
@@ -591,7 +603,7 @@ ngx_lua_file_aio_write(ngx_lua_thread_t *thr, ngx_lua_file_ctx_t *ctx)
     file = &ctx->file;
     b = ctx->out;
 
-#if (NGX_LINUX) || (NGX_WIN32)
+#if (NGX_HAVE_FILE_AIO) && ((NGX_LINUX) || (NGX_WIN32))
 
     n = ngx_file_aio_write(file, b->start, ctx->size, ctx->offset, ctx->pool);
 
@@ -635,6 +647,7 @@ ngx_lua_file_aio_write(ngx_lua_thread_t *thr, ngx_lua_file_ctx_t *ctx)
 }
 
 
+#if (NGX_HAVE_FILE_AIO)
 static void
 ngx_lua_file_aio_write_handler(ngx_event_t *ev)
 {
@@ -661,6 +674,7 @@ ngx_lua_file_aio_write_handler(ngx_event_t *ev)
 
     ngx_lua_finalize(ctx->thr, rc);
 }
+#endif
 
 
 static ngx_int_t

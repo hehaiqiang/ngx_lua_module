@@ -5,7 +5,7 @@
 LUAJIT="$ngx_addon_dir/../../../lib/luajit"
 
 if [ "$NGX_PLATFORM" != win32 ]; then
-    LUAJIT_LIBS="-L$LUAJIT/libs/unix -lluajit"
+    LUAJIT_LIBS="-L$LUAJIT/libs/unix -lluajit -lm"
 else
     LUAJIT_LIBS="$LUAJIT/libs/win32/libluajit.lib"
 fi

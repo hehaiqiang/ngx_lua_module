@@ -8,6 +8,7 @@ ngx_addon_name=ngx_lua_module
 NGX_LUAJIT=YES
 
 NGX_LUA_DLL=YES
+#NGX_LUA_DLL=NO
 
 
 NGX_LUA_AUTORUN=YES
