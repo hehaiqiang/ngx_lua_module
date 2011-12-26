@@ -45,6 +45,15 @@ if [ $NGX_LUA_DLL = YES ]; then
         . $ngx_addon_dir/auto/make
     fi
 
+    if [ $NGX_LUA_BTT = YES ]; then
+        lua_module="$NGX_LUA_BTT_MODULE"
+        lua_module_libs="lua_module_def_libs"
+        lua_module_incs=
+        lua_module_deps=
+        lua_module_srcs="$NGX_LUA_BTT_SRCS"
+        . $ngx_addon_dir/auto/make
+    fi
+
     if [ $NGX_LUA_DAHUA = YES ]; then
         lua_module="$NGX_LUA_DAHUA_MODULE"
         lua_module_libs="$lua_module_def_libs"
@@ -162,6 +171,15 @@ if [ $NGX_LUA_DLL = YES ]; then
             lua_module_srcs="$NGX_LUA_HTTP_VARIABLE_SRCS"
             . $ngx_addon_dir/auto/make
         fi
+
+        if [ $NGX_LUA_BTT = YES -a $NGX_LUA_HTTP_BTT = YES ]; then
+            lua_module="$NGX_LUA_HTTP_BTT_MODULE"
+            lua_module_libs="$lua_module_def_libs"
+            lua_module_incs=
+            lua_module_deps="$NGX_LUA_HTTP_BTT_DEPS"
+            lua_module_srcs="$NGX_LUA_HTTP_BTT_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
     fi
 
     if [ $NGX_LUA_TCP = YES ]; then
@@ -193,6 +211,15 @@ if [ $NGX_LUA_DLL = YES ]; then
             lua_module_srcs="$NGX_LUA_UDP_REQUEST_SRCS"
             . $ngx_addon_dir/auto/make
         fi
+
+        if [ $NGX_LUA_BTT = YES -a $NGX_LUA_UDP_BTT = YES ]; then
+            lua_module="$NGX_LUA_UDP_BTT_MODULE"
+            lua_module_libs="$lua_module_def_libs"
+            lua_module_incs=
+            lua_module_deps="$NGX_LUA_UDP_BTT_DEPS"
+            lua_module_srcs="$NGX_LUA_UDP_BTT_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
     fi
 
     if [ $NGX_LUA_UDT = YES ]; then
@@ -211,6 +238,15 @@ if [ $NGX_LUA_DLL = YES ]; then
             lua_module_incs=
             lua_module_deps=
             lua_module_srcs="$NGX_LUA_UDT_RESPONSE_SRCS"
+            . $ngx_addon_dir/auto/make
+        fi
+
+        if [ $NGX_LUA_BTT = YES -a $NGX_LUA_UDT_BTT = YES ]; then
+            lua_module="$NGX_LUA_UDT_BTT_MODULE"
+            lua_module_libs="$lua_module_def_libs"
+            lua_module_incs=
+            lua_module_deps=
+            lua_module_srcs="$NGX_LUA_UDT_BTT_SRCS"
             . $ngx_addon_dir/auto/make
         fi
     fi

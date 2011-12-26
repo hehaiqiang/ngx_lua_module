@@ -106,6 +106,15 @@ NGX_LUA_AXIS2C_XML_SRCS=" \
     $ngx_addon_dir/src/core/modules/ngx_lua_axis2c_xml_module.c"
 
 
+NGX_BTT_MODULE="ngx_btt_module"
+NGX_BTT_INCS="$ngx_addon_dir/../ngx_btt_module/src"
+NGX_BTT_DEPS="$ngx_addon_dir/../ngx_btt_module/src/ngx_btt.h"
+NGX_BTT_SRCS="$ngx_addon_dir/../ngx_btt_module/src/ngx_btt.c"
+
+NGX_LUA_BTT_MODULE="ngx_lua_btt_module"
+NGX_LUA_BTT_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_btt_module.c"
+
+
 NGX_LUA_DAHUA_MODULE="ngx_lua_dahua_module"
 NGX_LUA_DAHUA_SRCS="$ngx_addon_dir/src/core/modules/ngx_lua_dahua_module.c"
 
@@ -169,6 +178,12 @@ NGX_LUA_HTTP_VARIABLE_MODULE="ngx_lua_http_variable_module"
 NGX_LUA_HTTP_VARIABLE_SRCS=" \
     $ngx_addon_dir/src/http/modules/ngx_lua_http_variable_module.c"
 
+NGX_LUA_HTTP_BTT_MODULE="ngx_lua_http_btt_module"
+NGX_LUA_HTTP_BTT_DEPS="$ngx_addon_dir/../ngx_btt_module/src/ngx_btt_http.h"
+NGX_LUA_HTTP_BTT_SRCS=" \
+    $ngx_addon_dir/../ngx_btt_module/src/ngx_btt_http.c \
+    $ngx_addon_dir/src/http/modules/ngx_lua_http_btt_module.c"
+
 
 NGX_LUA_TCP_REQUEST_MODULE="ngx_lua_tcp_request_module"
 NGX_LUA_TCP_REQUEST_SRCS="$ngx_addon_dir/src/tcp/ngx_lua_tcp_request_module.c"
@@ -181,6 +196,12 @@ NGX_LUA_TCP_RESPONSE_SRCS=" \
 NGX_LUA_UDP_REQUEST_MODULE="ngx_lua_udp_request_module"
 NGX_LUA_UDP_REQUEST_SRCS="$ngx_addon_dir/src/udp/ngx_lua_udp_request_module.c"
 
+NGX_LUA_UDP_BTT_MODULE="ngx_lua_udp_btt_module"
+NGX_LUA_UDP_BTT_DEPS="$ngx_addon_dir/../ngx_btt_module/src/ngx_btt_udp.h"
+NGX_LUA_UDP_BTT_SRCS=" \
+    $ngx_addon_dir/../ngx_btt_module/src/ngx_btt_udp.c \
+    $ngx_addon_dir/src/udp/ngx_lua_udp_btt_module.c"
+
 
 NGX_LUA_UDT_REQUEST_MODULE="ngx_lua_udt_request_module"
 NGX_LUA_UDT_REQUEST_SRCS="$ngx_addon_dir/src/udt/ngx_lua_udt_request_module.c"
@@ -188,3 +209,6 @@ NGX_LUA_UDT_REQUEST_SRCS="$ngx_addon_dir/src/udt/ngx_lua_udt_request_module.c"
 NGX_LUA_UDT_RESPONSE_MODULE="ngx_lua_udt_response_module"
 NGX_LUA_UDT_RESPONSE_SRCS=" \
     $ngx_addon_dir/src/udt/ngx_lua_udt_response_module.c"
+
+NGX_LUA_UDT_BTT_MODULE="ngx_lua_udt_btt_module"
+NGX_LUA_UDT_BTT_SRCS="$ngx_addon_dir/src/udt/ngx_lua_udt_btt_module.c"

@@ -106,6 +106,7 @@ static ngx_uint_t  argument_number[] = {
 extern ngx_module_t  ngx_lua_cache_module;
 extern ngx_module_t  ngx_lua_parser_module;
 extern ngx_module_t  ngx_lua_autorun_module;
+extern ngx_module_t  ngx_lua_btt_module;
 extern ngx_module_t  ngx_lua_dahua_module;
 extern ngx_module_t  ngx_lua_dbd_module;
 extern ngx_module_t  ngx_lua_dbd_libdrizzle_module;
@@ -122,11 +123,14 @@ extern ngx_module_t  ngx_lua_http_response_module;
 extern ngx_module_t  ngx_lua_session_module;
 extern ngx_module_t  ngx_lua_http_session_module;
 extern ngx_module_t  ngx_lua_http_variable_module;
+extern ngx_module_t  ngx_lua_http_btt_module;
 extern ngx_module_t  ngx_lua_tcp_request_module;
 extern ngx_module_t  ngx_lua_tcp_response_module;
 extern ngx_module_t  ngx_lua_udp_request_module;
+extern ngx_module_t  ngx_lua_udp_btt_module;
 extern ngx_module_t  ngx_lua_udt_request_module;
 extern ngx_module_t  ngx_lua_udt_response_module;
+extern ngx_module_t  ngx_lua_udt_btt_module;
 
 
 ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
@@ -134,6 +138,7 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_parser_module,
 #if !(NGX_LUA_DLL)
     &ngx_lua_autorun_module,
+    &ngx_lua_btt_module,
     &ngx_lua_dahua_module,
 #if (NGX_LUA_DBD)
     &ngx_lua_dbd_module,
@@ -157,9 +162,11 @@ ngx_module_t  *ngx_lua_modules[NGX_LUA_MAX_MODULES] = {
     &ngx_lua_session_module,
     &ngx_lua_http_session_module,
     &ngx_lua_http_variable_module,
+    &ngx_lua_http_btt_module,
     &ngx_lua_tcp_request_module,
     &ngx_lua_tcp_response_module,
     &ngx_lua_udp_request_module,
+    &ngx_lua_udp_btt_module,
 #if (NGX_UDT)
     &ngx_lua_udt_request_module,
     &ngx_lua_udt_response_module,
