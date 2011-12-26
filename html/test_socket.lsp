@@ -55,26 +55,51 @@ function test_udp()
 end
 
 function test_udt()
+  local start_time = req.request_time
+
   local s, errstr = socket.open('127.0.0.1:9000', socket.UDT)
   if not s then print(errstr) return end
 
+  local end_time = req.request_time
+  print('connect time: ' .. end_time - start_time .. 'ms<br/>')
+
   -- login
+
+  start_time = req.request_time
 
   local rc, errstr = s:send('login')
   if not rc then print(errstr) s:close() return end
 
+  end_time = req.request_time
+  print('send time: ' .. end_time - start_time .. 'ms<br/>')
+
+  start_time = req.request_time
+
   local res, errstr = s:recv()
   if not res then print(errstr) s:close() return end
-  print(res)
+  print(res .. '<br/>')
+
+  end_time = req.request_time
+  print('recv time: ' .. end_time - start_time .. 'ms<br/>')
 
   -- logout
+
+  start_time = req.request_time
 
   local rc, errstr = s:send('logout')
   if not rc then print(errstr) s:close() return end
 
+  end_time = req.request_time
+  print('send time: ' .. end_time - start_time .. 'ms<br/>')
+
+  start_time = req.request_time
+
   local res, errstr = s:recv()
   if not res then print(errstr) s:close() return end
-  print(res)
+  print(res .. '<br/>')
+
+  end_time = req.request_time
+  print('recv time: ' .. end_time - start_time .. 'ms<br/>')
 
   s:close()
 end

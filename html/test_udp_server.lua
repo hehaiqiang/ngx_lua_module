@@ -1,4 +1,5 @@
-﻿local nginx = nginx
+﻿local print = print
+local nginx = nginx
 local log = nginx.logger
 local udp_srv = nginx.udp_srv
 local req = udp_srv.request
